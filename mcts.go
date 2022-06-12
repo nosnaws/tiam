@@ -40,10 +40,15 @@ func MCTS(youId string, board *rules.BoardState, ruleset rules.Ruleset) rules.Sn
 		backpropagate(child, score)
 	}
 
-	fmt.Println("total plays", root.plays)
+	fmt.Println("# ROOT #")
 	printNode(root)
+	fmt.Println("# Children #")
+	for _, child := range root.children {
+		printNode(child)
+	}
 
-	bestChild := bestScore(root)
+	bestChild := selectFinalMove(root)
+	fmt.Println("# Selected #")
 	printNode(bestChild)
 
 	return bestChild.move
@@ -67,11 +72,9 @@ func selectNode(node *Node) *Node {
 }
 
 func printNode(node *Node) {
-	fmt.Println("### Node ###")
 	fmt.Println("Plays", node.plays)
 	fmt.Println("Score", node.score)
-	fmt.Println("Snakes", node.board.Snakes)
-	fmt.Println("### end ###")
+	fmt.Println("Move", node.move.Move)
 }
 
 func isGameOver(board *rules.BoardState, ruleset rules.Ruleset) bool {
@@ -174,7 +177,6 @@ func getMove(id string, moves []rules.SnakeMove) *rules.SnakeMove {
 
 func createChildren(node *Node) []*Node {
 	productOfMoves := GetCartesianProductOfMoves(node.board, node.ruleset)
-	fmt.Println(len(productOfMoves))
 
 	var children []*Node
 	for _, moveSet := range productOfMoves {
@@ -214,10 +216,10 @@ func Shuffle(nodes []*Node) []*Node {
 	return ret
 }
 
-func bestScore(node *Node) *Node {
+func selectFinalMove(node *Node) *Node {
 	children := node.children
 	sort.Slice(children, func(a, b int) bool {
-		return children[a].score > children[b].score
+		return children[a].plays > children[b].plays
 	})
 
 	return children[0]
@@ -234,10 +236,10 @@ func bestUTC(node *Node) *Node {
 
 func calculateUTC(node *Node) float64 {
 	explorationConstant := math.Sqrt(2)
-	numParentSims := float64(len(node.parent.children))
+	numParentSims := float64(node.parent.plays)
 
-	exploitation := float64(node.score) / float64(len(node.children))
-	exploration := explorationConstant * math.Sqrt(math.Log(numParentSims)/float64(len(node.children)))
+	exploitation := float64(node.score) / float64(node.plays)
+	exploration := explorationConstant * math.Sqrt(math.Log(numParentSims)/float64(node.plays))
 
 	return exploitation + exploration
 }
