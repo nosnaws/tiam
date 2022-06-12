@@ -5,9 +5,11 @@ import (
 	"log"
 	"net/http"
 	"os"
+
+	"github.com/newrelic/go-agent/v3/newrelic"
 )
 
-const ServerID = "BattlesnakeOfficial/starter-snake-go"
+const ServerID = "nosnaws/tiam"
 
 type GameState struct {
 	Game  Game        `json:"game"`
@@ -159,15 +161,21 @@ func withServerID(next http.HandlerFunc) http.HandlerFunc {
 // Main Entrypoint
 
 func main() {
+	nrLicenseKey := os.Getenv("NEW_RELIC_LICENSE_KEY")
 	port := os.Getenv("PORT")
 	if len(port) == 0 {
 		port = "8080"
 	}
 
-	http.HandleFunc("/", withServerID(HandleIndex))
-	http.HandleFunc("/start", withServerID(HandleStart))
-	http.HandleFunc("/move", withServerID(HandleMove))
-	http.HandleFunc("/end", withServerID(HandleEnd))
+	app, _ := newrelic.NewApplication(
+		newrelic.ConfigAppName("Tiam"),
+		newrelic.ConfigLicense(nrLicenseKey),
+	)
+
+	http.HandleFunc(newrelic.WrapHandleFunc(app, "/", withServerID(HandleIndex)))
+	http.HandleFunc(newrelic.WrapHandleFunc(app, "/start", withServerID(HandleStart)))
+	http.HandleFunc(newrelic.WrapHandleFunc(app, "/move", withServerID(HandleMove)))
+	http.HandleFunc(newrelic.WrapHandleFunc(app, "/end", withServerID(HandleEnd)))
 
 	log.Printf("Starting Battlesnake Server at http://0.0.0.0:%s...\n", port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
