@@ -8,21 +8,27 @@ import (
 	"time"
 
 	"github.com/BattlesnakeOfficial/rules"
+	"github.com/deckarep/golang-set"
 )
 
 type Node struct {
 	youId    string
-	score    int32
 	plays    int32
 	ruleset  rules.Ruleset
 	board    *rules.BoardState
 	children []*Node
 	parent   *Node
-	move     rules.SnakeMove
+	moves    []rules.SnakeMove
+	scores   map[string]int32
+}
+
+type SnakeScore struct {
+	ID    string
+	Value int32
 }
 
 func MCTS(youId string, board *rules.BoardState, ruleset rules.Ruleset) rules.SnakeMove {
-	fakeMove := rules.SnakeMove{ID: youId, Move: ""}
+	fakeMove := []rules.SnakeMove{{ID: youId, Move: ""}}
 	root := createNode(youId, fakeMove, board, ruleset)
 	root.children = createChildren(root)
 
@@ -51,7 +57,14 @@ func MCTS(youId string, board *rules.BoardState, ruleset rules.Ruleset) rules.Sn
 	fmt.Println("# Selected #")
 	printNode(bestChild)
 
-	return bestChild.move
+	for _, m := range bestChild.moves {
+		if m.ID == root.youId {
+			return m
+		}
+	}
+
+	fmt.Println("Could not find move, going left")
+	return rules.SnakeMove{ID: root.youId, Move: "left"}
 }
 
 func printDepth(node *Node, acc int) {
@@ -73,8 +86,8 @@ func selectNode(node *Node) *Node {
 
 func printNode(node *Node) {
 	fmt.Println("Plays", node.plays)
-	fmt.Println("Score", node.score)
-	fmt.Println("Move", node.move.Move)
+	fmt.Println("Score", node.scores)
+	fmt.Println("Move", node.moves)
 }
 
 func isGameOver(board *rules.BoardState, ruleset rules.Ruleset) bool {
@@ -101,7 +114,7 @@ func expandNode(node *Node) *Node {
 	return getRandomUnexploredChild(node)
 }
 
-func simulateNode(node *Node) int32 {
+func simulateNode(node *Node) []SnakeScore {
 	ns := node.board.Clone()
 
 	for isGameOver(ns, node.ruleset) == false {
@@ -119,26 +132,27 @@ func simulateNode(node *Node) int32 {
 		ns, _ = node.ruleset.CreateNextBoardState(ns, allMoves)
 	}
 
-	you := getSnake(node.youId, ns)
-	if you == nil {
-		panic("cannot find self")
+	var scores []SnakeScore
+	for _, snake := range ns.Snakes {
+		if snake.EliminatedCause == rules.NotEliminated {
+			scores = append(scores, SnakeScore{ID: snake.ID, Value: 1})
+		}
 	}
 
-	if you.EliminatedCause == rules.NotEliminated {
-		return 1
-	}
-
-	return 0
+	return scores
 }
 
-func backpropagate(node *Node, score int32) {
+func backpropagate(node *Node, scores []SnakeScore) {
 	if node == nil {
 		return
 	}
 
 	node.plays += 1
-	node.score += score
-	backpropagate(node.parent, score)
+
+	for _, sc := range scores {
+		node.scores[sc.ID] += sc.Value
+	}
+	backpropagate(node.parent, scores)
 }
 
 func isLeafNode(node *Node) bool {
@@ -188,12 +202,7 @@ func createChildren(node *Node) []*Node {
 			panic("could not create next board state")
 		}
 
-		youMove := getMove(node.youId, moveSet)
-		if youMove == nil {
-			panic("could not find move")
-		}
-
-		childNode := createNode(node.youId, *youMove, ns, node.ruleset)
+		childNode := createNode(node.youId, moveSet, ns, node.ruleset)
 		childNode.parent = node
 
 		children = append(children, childNode)
@@ -202,8 +211,9 @@ func createChildren(node *Node) []*Node {
 	return children
 }
 
-func createNode(youId string, move rules.SnakeMove, board *rules.BoardState, rules rules.Ruleset) *Node {
-	return &Node{youId: youId, move: move, board: board, ruleset: rules}
+func createNode(youId string, moves []rules.SnakeMove, board *rules.BoardState, rules rules.Ruleset) *Node {
+	scores := make(map[string]int32)
+	return &Node{youId: youId, moves: moves, board: board, ruleset: rules, scores: scores}
 }
 
 func Shuffle(nodes []*Node) []*Node {
@@ -226,19 +236,54 @@ func selectFinalMove(node *Node) *Node {
 }
 
 func bestUTC(node *Node) *Node {
+	var moveSet []rules.SnakeMove
+	for _, snake := range node.board.Snakes {
+		best := bestUTCForSnake(node, snake.ID)
+		for _, move := range best.moves {
+			if move.ID == snake.ID {
+				moveSet = append(moveSet, move)
+			}
+		}
+	}
+
+	for _, child := range node.children {
+		if isEqual(moveSet, child.moves) {
+			return child
+		}
+	}
+
+	return nil
+}
+
+func isEqual(a, b []rules.SnakeMove) bool {
+	aSet := mapset.NewSet()
+	for _, v := range a {
+		aSet.Add(v)
+	}
+
+	bSet := mapset.NewSet()
+	for _, v := range b {
+		bSet.Add(v)
+	}
+
+	return aSet.Equal(bSet)
+}
+
+func bestUTCForSnake(node *Node, snakeId string) *Node {
 	children := node.children
 	sort.Slice(children, func(a, b int) bool {
-		return calculateUTC(children[a]) > calculateUTC(children[b])
+		return calculateUTC(children[a], snakeId) > calculateUTC(children[b], snakeId)
 	})
 
 	return children[0]
 }
 
-func calculateUTC(node *Node) float64 {
-	explorationConstant := math.Sqrt(2)
+func calculateUTC(node *Node, snakeId string) float64 {
+	explorationConstant := math.Sqrt(10)
 	numParentSims := float64(node.parent.plays)
+	score := node.scores[snakeId]
 
-	exploitation := float64(node.score) / float64(node.plays)
+	exploitation := float64(score) / float64(node.plays)
 	exploration := explorationConstant * math.Sqrt(math.Log(numParentSims)/float64(node.plays))
 
 	return exploitation + exploration
