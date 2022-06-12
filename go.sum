@@ -1,2 +1,8 @@
 github.com/BattlesnakeOfficial/rules v1.0.33 h1:6EGFiTaXiVdk0jof295kMmhGXpee7GnTA2cyhDCo4Hg=
 github.com/BattlesnakeOfficial/rules v1.0.33/go.mod h1:8g8v24eF/DCRpzMTXUcjBPB/UVbI9ooDcX3bSpQeVho=
+github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
+github.com/pmezard/go-difflib v1.0.0 h1:4DBwDE0NGyQoBHbLQYPwSUPoCMWR5BEzIk/f1lZbAQM=
+github.com/schwarmco/go-cartesian-product v0.0.0-20180515110546-d5ee747a6dc9 h1:rIlaPhb87A5GJy0FbjlxesD2lyr052gS/pF6NSAvSEo=
+github.com/schwarmco/go-cartesian-product v0.0.0-20180515110546-d5ee747a6dc9/go.mod h1:0jtE6j9sPEDD6gfLzxwt1eF2VI6u/w1sQ99IuZcUfyk=
+github.com/stretchr/testify v1.4.0 h1:2E4SXV/wtOkTonXsotYi4li6zVWxYlZuYNCXe9XRJyk=
+gopkg.in/yaml.v2 v2.2.8 h1:obN1ZagJSUGI0Ek/LBmuj4SNLPfIny3KsKFopxRdj10=

@@ -42,6 +42,52 @@ func battleSnakesToSnakes(battleSnakes []Battlesnake) []rules.Snake {
 	return snakes
 }
 
+// http://prtamil.github.io/posts/cartesian-product-go/
+func GetCartesianProductOfMoves(board *rules.BoardState, ruleset rules.Ruleset) [][]rules.SnakeMove {
+	var allMoves [][]rules.SnakeMove
+	for _, snake := range board.Snakes {
+		moves := GetSnakeMoves(snake, ruleset, *board)
+		allMoves = append(allMoves, moves)
+	}
+
+	var temp [][]rules.SnakeMove
+	for _, a := range allMoves[0] {
+		temp = append(temp, []rules.SnakeMove{a})
+	}
+
+	for i := 1; i < len(allMoves); i++ {
+		temp = cartesianProduct(temp, allMoves[i])
+	}
+
+	return temp
+}
+
+func cartesianProduct(movesA [][]rules.SnakeMove, movesB []rules.SnakeMove) [][]rules.SnakeMove {
+	var result [][]rules.SnakeMove
+	for _, a := range movesA {
+		for _, b := range movesB {
+			var temp []rules.SnakeMove
+			for _, m := range a {
+				temp = append(temp, m)
+			}
+
+			temp = append(temp, b)
+			result = append(result, temp)
+		}
+	}
+
+	return result
+}
+
+func getSnake(id string, board *rules.BoardState) *rules.Snake {
+	for _, snake := range board.Snakes {
+		if snake.ID == id {
+			return &snake
+		}
+	}
+	return nil
+}
+
 func battleSnakeToSnake(bs Battlesnake) rules.Snake {
 	return rules.Snake{
 		ID:     bs.ID,
