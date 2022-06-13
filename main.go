@@ -144,6 +144,9 @@ func HandleEnd(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	txn := newrelic.FromContext(r.Context())
+	getCustomAttributesEnd(txn, state)
+
 	end(state)
 
 	// Nothing to respond with here
