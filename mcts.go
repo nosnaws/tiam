@@ -26,7 +26,7 @@ func MCTS(youId string, board *rules.BoardState, ruleset rules.Ruleset) rules.Sn
 	root := createNode(youId, fakeMove, board, ruleset)
 	root.children = createChildren(root)
 
-	duration, err := time.ParseDuration("100ms")
+	duration, err := time.ParseDuration("200ms")
 	if err != nil {
 		panic("could not parse duration")
 	}
