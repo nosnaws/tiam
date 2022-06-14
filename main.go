@@ -126,7 +126,9 @@ func HandleMove(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	response := move(state)
+	txn := newrelic.FromContext(r.Context())
+
+	response := move(state, txn)
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(response)
