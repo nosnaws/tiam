@@ -43,7 +43,7 @@ func end(state GameState) {
 // This function is called on every turn of a game. Use the provided GameState to decide
 // where to move -- valid moves are "up", "down", "left", or "right".
 // We've provided some code and comments to get you started.
-func move(state GameState, txn newrelic.Transaction) BattlesnakeMoveResponse {
+func move(state GameState, txn *newrelic.Transaction) BattlesnakeMoveResponse {
 	fmt.Println("START TURN: ", state.Turn)
 	gameBoard := BuildBoard(state)
 	ruleset := BuildRuleset(state)

@@ -40,18 +40,18 @@ type SnakeScore struct {
 	Move  string
 }
 
-func addAttributes(txn newrelic.Transaction, root *Node, selected rules.SnakeMove) {
+func addAttributes(txn *newrelic.Transaction, root *Node, selected rules.SnakeMove) {
 	txn.AddAttribute("totalPlays", root.Plays)
 	txn.AddAttribute("selectedMove", selected.Move)
 	for _, m := range root.PossibleMoves[root.YouId] {
-		scoreKey := fmt.Sprint("moves.scores.%s", m.Move)
-		playsKey := fmt.Sprint("moves.plays.%s", m.Move)
+		scoreKey := fmt.Sprintf("moves.scores.%s", m.Move)
+		playsKey := fmt.Sprintf("moves.plays.%s", m.Move)
 		txn.AddAttribute(scoreKey, root.Payoffs[root.YouId].Scores[m.Move])
 		txn.AddAttribute(playsKey, root.Payoffs[root.YouId].Plays[m.Move])
 	}
 }
 
-func MCTS(youId string, board *rules.BoardState, ruleset rules.Ruleset, txn newrelic.Transaction) rules.SnakeMove {
+func MCTS(youId string, board *rules.BoardState, ruleset rules.Ruleset, txn *newrelic.Transaction) rules.SnakeMove {
 	fakeMoveSet := make(map[string]rules.SnakeMove)
 	root := createNode(youId, fakeMoveSet, board, ruleset)
 	root.Children = createChildren(root)
