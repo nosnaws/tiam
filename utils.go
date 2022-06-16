@@ -42,6 +42,59 @@ func battleSnakesToSnakes(battleSnakes []Battlesnake) []rules.Snake {
 	return snakes
 }
 
+func FindNearestFood(board *rules.BoardState, ruleset rules.Ruleset, snake rules.Snake) []rules.Point {
+	isWrapped := ruleset.Name() == "wrapped"
+	return breadthFirstSearchFood(board, snake, isWrapped)
+}
+
+type BFSEdge struct {
+	Point  rules.Point
+	Parent *BFSEdge
+}
+
+func breadthFirstSearchFood(board *rules.BoardState, snake rules.Snake, isWrapped bool) []rules.Point {
+	current := snake.Body[0]
+	var q []rules.Point
+	explored := make(map[rules.Point]*BFSEdge)
+	explored[current] = &BFSEdge{Point: current}
+	q = append(q, current)
+
+	var v rules.Point
+	for len(q) > 0 {
+		v, q = q[0], q[1:]
+
+		if isPointInSlice(v, board.Food) {
+			return constructBFSPath(explored[v])
+		}
+
+		for _, edge := range GetEdges(v, board, isWrapped) {
+			if explored[edge] == nil {
+				explored[edge] = &BFSEdge{Point: edge, Parent: explored[v]}
+				q = append(q, edge)
+			}
+		}
+	}
+
+	return []rules.Point{}
+}
+
+func constructBFSPath(edge *BFSEdge) []rules.Point {
+	if edge == nil {
+		return []rules.Point{}
+	}
+
+	return append(constructBFSPath(edge.Parent), edge.Point)
+}
+
+func isPointInSlice(p rules.Point, s []rules.Point) bool {
+	for _, current := range s {
+		if current == p {
+			return true
+		}
+	}
+	return false
+}
+
 // http://prtamil.github.io/posts/cartesian-product-go/
 func GetCartesianProductOfMoves(board *rules.BoardState, ruleset rules.Ruleset) [][]rules.SnakeMove {
 	var allMoves [][]rules.SnakeMove
@@ -110,6 +163,39 @@ func coordToPoint(c Coord) rules.Point {
 }
 
 var possibleMoves = []string{rules.MoveUp, rules.MoveDown, rules.MoveLeft, rules.MoveRight}
+
+func GetEdges(head rules.Point, board *rules.BoardState, isWrapped bool) []rules.Point {
+	edges := []rules.Point{{X: head.X + 1, Y: head.Y}, {X: head.X - 1, Y: head.Y}, {X: head.X, Y: head.Y + 1}, {X: head.X, Y: head.Y - 1}}
+	edges = updateForWrapped(edges, board.Height, board.Width, isWrapped)
+	edges = filterInBounds(edges, board.Height, board.Width)
+	return edges
+}
+
+func updateForWrapped(p []rules.Point, h int32, w int32, isWrapped bool) []rules.Point {
+	if !isWrapped {
+		return p
+	}
+
+	var wrappedPoints []rules.Point
+	for _, point := range p {
+		wrappedPoints = append(wrappedPoints, rules.Point{X: point.X % w, Y: point.Y % h})
+	}
+
+	return wrappedPoints
+}
+
+func filterInBounds(p []rules.Point, h int32, w int32) []rules.Point {
+	var inBounds []rules.Point
+	for _, point := range p {
+		if point.X >= w || point.Y >= h || point.X < 0 || point.Y < 0 {
+			continue
+		}
+
+		inBounds = append(inBounds, point)
+	}
+
+	return inBounds
+}
 
 func GetSnakeMoves(snake rules.Snake, ruleset rules.Ruleset, board rules.BoardState) []rules.SnakeMove {
 	head := snake.Body[0]

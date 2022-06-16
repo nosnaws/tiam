@@ -24,20 +24,16 @@ type Node struct {
 }
 
 type Payoff struct {
-	Plays  map[string]int
-	Scores map[string]int
-}
-
-type MoveScore struct {
-	Direction string
-	Plays     int
-	Value     int
+	Plays     map[string]int
+	Scores    map[string]int
+	Heuristic map[string]float64
 }
 
 type SnakeScore struct {
-	ID    string
-	Value int
-	Move  string
+	ID        string
+	Value     int
+	Move      string
+	Heuristic float64
 }
 
 func addAttributes(txn *newrelic.Transaction, root *Node, selected rules.SnakeMove) {
@@ -154,9 +150,21 @@ func simulateNode(node *Node) []SnakeScore {
 		ns, _ = node.Ruleset.CreateNextBoardState(ns, allMoves)
 	}
 
+	var nodeHeuristic float64
+	for _, snake := range node.Board.Snakes {
+		if snake.ID == node.YouId {
+			nodeHeuristic = calculateNodeHeuristic(node, snake)
+		}
+	}
+
 	var scores []SnakeScore
 	for _, snake := range ns.Snakes {
-		score := SnakeScore{ID: snake.ID, Value: 0, Move: node.MoveSet[snake.ID].Move}
+		snakeHeuristic := nodeHeuristic
+		if snake.ID != node.YouId {
+			snakeHeuristic = -snakeHeuristic
+		}
+
+		score := SnakeScore{ID: snake.ID, Value: 0, Move: node.MoveSet[snake.ID].Move, Heuristic: snakeHeuristic}
 		if snake.EliminatedCause == rules.NotEliminated {
 			score.Value = 1
 		}
@@ -176,7 +184,11 @@ func backpropagate(node *Node, scores []SnakeScore) {
 	for _, sc := range scores {
 		node.Payoffs[sc.ID].Plays[sc.Move] += 1
 		node.Payoffs[sc.ID].Scores[sc.Move] += sc.Value
-		pastMovesWithScore = append(pastMovesWithScore, SnakeScore{ID: sc.ID, Value: sc.Value, Move: node.MoveSet[sc.ID].Move})
+
+		h := node.Payoffs[sc.ID].Heuristic[sc.Move]
+		node.Payoffs[sc.ID].Heuristic[sc.Move] = math.Max(h, sc.Heuristic)
+
+		pastMovesWithScore = append(pastMovesWithScore, SnakeScore{ID: sc.ID, Value: sc.Value, Move: node.MoveSet[sc.ID].Move, Heuristic: sc.Heuristic})
 	}
 
 	backpropagate(node.Parent, pastMovesWithScore)
@@ -258,12 +270,14 @@ func createNode(youId string, moveSet map[string]rules.SnakeMove, board *rules.B
 func createPayoff(moves []rules.SnakeMove) Payoff {
 	plays := make(map[string]int)
 	scores := make(map[string]int)
+	heuristics := make(map[string]float64)
 
 	for _, m := range moves {
 		plays[m.Move] = 0
 		scores[m.Move] = 0
+		heuristics[m.Move] = 0
 	}
-	return Payoff{Plays: plays, Scores: scores}
+	return Payoff{Plays: plays, Scores: scores, Heuristic: heuristics}
 }
 
 func Shuffle(nodes []*Node) []*Node {
@@ -316,21 +330,32 @@ func isStateEqual(a []rules.SnakeMove, b map[string]rules.SnakeMove) bool {
 func bestMoveUTC(node *Node, snakeId string) rules.SnakeMove {
 	moves := node.PossibleMoves[snakeId]
 	sort.Slice(moves, func(a, b int) bool {
-		return calculateUTC(node, snakeId, moves[a].Move) > calculateUTC(node, snakeId, moves[b].Move)
+		return calculateUCB(node, snakeId, moves[a].Move) > calculateUCB(node, snakeId, moves[b].Move)
 	})
 
 	return moves[0]
 }
 
-func calculateUTC(node *Node, snakeId string, move string) float64 {
+func calculateUCB(node *Node, snakeId string, move string) float64 {
 	payoff := node.Payoffs[snakeId]
 	explorationConstant := math.Sqrt(2)
+	alpha := float64(0.2)
+
 	numParentSims := float64(node.Plays)
 	score := payoff.Scores[move]
 	plays := payoff.Plays[move]
+	heuristic := payoff.Heuristic[move]
 
-	exploitation := float64(score) / float64(plays)
+	exploitation := (1-alpha)*(float64(score)/float64(plays)) + alpha*heuristic
 	exploration := explorationConstant * math.Sqrt(math.Log(numParentSims)/float64(plays))
 
 	return exploitation + exploration
+}
+
+func calculateNodeHeuristic(node *Node, snake rules.Snake) float64 {
+	closestFoodPath := FindNearestFood(node.Board, node.Ruleset, snake)
+	health := snake.Health
+
+	score := float64(int(health) - len(closestFoodPath))
+	return math.Atan(score)
 }
