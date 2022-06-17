@@ -68,7 +68,7 @@ func breadthFirstSearchFood(board *rules.BoardState, snake rules.Snake, isWrappe
 		}
 
 		for _, edge := range GetEdges(v, board, isWrapped) {
-			if explored[edge] == nil {
+			if explored[edge] == nil && !isPointInSlice(edge, board.Hazards) {
 				explored[edge] = &BFSEdge{Point: edge, Parent: explored[v]}
 				q = append(q, edge)
 			}

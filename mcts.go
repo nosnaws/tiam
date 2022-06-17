@@ -354,8 +354,22 @@ func calculateUCB(node *Node, snakeId string, move string) float64 {
 
 func calculateNodeHeuristic(node *Node, snake rules.Snake) float64 {
 	closestFoodPath := FindNearestFood(node.Board, node.Ruleset, snake)
-	health := snake.Health
+	health := float64(snake.Health)
 
-	score := float64(int(health) - len(closestFoodPath))
-	return math.Atan(score)
+	//foodScore := float64(1/len(closestFoodPath) + 1)
+	//lengthScore := float64(len(snake.Body))
+
+	//numOtherSnakes := 1
+	//for _, s := range node.Board.Snakes {
+	//if s.ID != snake.ID {
+	//numOtherSnakes += 1
+	//}
+	//}
+	//otherSnakeScore := float64(1 / numOtherSnakes)
+	a := 60.0
+	b := 8.0
+	foodDistance := float64(len(closestFoodPath))
+	foodScore := a * math.Atan(health-foodDistance/b)
+
+	return foodScore
 }
