@@ -353,6 +353,7 @@ func calculateUCB(node *Node, snakeId string, move string) float64 {
 }
 
 func calculateNodeHeuristic(node *Node, snake rules.Snake) float64 {
+	isWrapped := node.Ruleset.Name() == "wrapped"
 	closestFoodPath := FindNearestFood(node.Board, node.Ruleset, snake)
 	health := float64(snake.Health)
 
@@ -370,6 +371,7 @@ func calculateNodeHeuristic(node *Node, snake rules.Snake) float64 {
 	b := 8.0
 	foodDistance := float64(len(closestFoodPath))
 	foodScore := a * math.Atan(health-foodDistance/b)
+	voronoi := BFSSpace(node.Board, snake, isWrapped, 10)
 
-	return foodScore
+	return foodScore + float64(voronoi)
 }

@@ -68,7 +68,7 @@ func breadthFirstSearchFood(board *rules.BoardState, snake rules.Snake, isWrappe
 		}
 
 		for _, edge := range GetEdges(v, board, isWrapped) {
-			if explored[edge] == nil && !isPointInSlice(edge, board.Hazards) {
+			if explored[edge] == nil {
 				explored[edge] = &BFSEdge{Point: edge, Parent: explored[v]}
 				q = append(q, edge)
 			}
@@ -166,9 +166,23 @@ var possibleMoves = []string{rules.MoveUp, rules.MoveDown, rules.MoveLeft, rules
 
 func GetEdges(head rules.Point, board *rules.BoardState, isWrapped bool) []rules.Point {
 	edges := []rules.Point{{X: head.X + 1, Y: head.Y}, {X: head.X - 1, Y: head.Y}, {X: head.X, Y: head.Y + 1}, {X: head.X, Y: head.Y - 1}}
+	fmt.Println("Edges raw: ", edges)
 	edges = updateForWrapped(edges, board.Height, board.Width, isWrapped)
+	fmt.Println("Edges wrapped: ", edges)
 	edges = filterInBounds(edges, board.Height, board.Width)
+	edges = filterSnakes(edges, board)
+	edges = filterHazards(edges, board)
 	return edges
+}
+
+func filterHazards(p []rules.Point, board *rules.BoardState) []rules.Point {
+	var safeMoves []rules.Point
+	for _, point := range p {
+		if !isPointInSlice(point, board.Hazards) {
+			safeMoves = append(safeMoves, point)
+		}
+	}
+	return safeMoves
 }
 
 func updateForWrapped(p []rules.Point, h int32, w int32, isWrapped bool) []rules.Point {
@@ -178,10 +192,39 @@ func updateForWrapped(p []rules.Point, h int32, w int32, isWrapped bool) []rules
 
 	var wrappedPoints []rules.Point
 	for _, point := range p {
+		if point.X < 0 {
+			point.X = w - 1
+		}
+		if point.Y < 0 {
+			point.Y = h - 1
+		}
 		wrappedPoints = append(wrappedPoints, rules.Point{X: point.X % w, Y: point.Y % h})
 	}
 
 	return wrappedPoints
+}
+
+func filterSnakes(p []rules.Point, board *rules.BoardState) []rules.Point {
+	var safeMoves []rules.Point
+	var snakeBodies []rules.Point
+	for _, snake := range board.Snakes {
+		body := snake.Body
+		hasEaten := body[:len(body)][0] == body[len(body)-2 : len(body)-1][0]
+		if !hasEaten {
+			snakeBodies = append(snakeBodies, body[:len(body)][0])
+		}
+		for i := 0; i < len(body)-1; i++ {
+			snakeBodies = append(snakeBodies, body[i])
+		}
+	}
+
+	for _, point := range p {
+		if !isPointInSlice(point, snakeBodies) {
+			safeMoves = append(safeMoves, point)
+		}
+	}
+
+	return safeMoves
 }
 
 func filterInBounds(p []rules.Point, h int32, w int32) []rules.Point {
