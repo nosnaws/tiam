@@ -21,6 +21,7 @@ type Node struct {
 	MoveSet       map[string]rules.SnakeMove
 	PossibleMoves map[string][]rules.SnakeMove
 	Payoffs       map[string]Payoff
+	Depth         int
 }
 
 type Payoff struct {
@@ -86,15 +87,6 @@ func MCTS(youId string, board *rules.BoardState, ruleset rules.Ruleset, txn *new
 	//return rules.SnakeMove{ID: root.YouId, Move: "left"}
 }
 
-func printDepth(node *Node, acc int) {
-	if node == nil {
-		fmt.Println("Depth: ", acc)
-		return
-	}
-
-	printDepth(node.Parent, acc+1)
-}
-
 func selectNode(node *Node) *Node {
 	if isLeafNode(node) {
 		return node
@@ -104,8 +96,12 @@ func selectNode(node *Node) *Node {
 }
 
 func printNode(node *Node) {
-	fmt.Println("Score", node.Payoffs)
-	fmt.Println("Move", node.MoveSet)
+	fmt.Println("#############")
+	fmt.Println("Depth", node.Depth)
+	fmt.Println("Plays", node.Payoffs[node.YouId].Plays)
+	fmt.Println("Scores", node.Payoffs[node.YouId].Scores)
+	fmt.Println("Heuristics", node.Payoffs[node.YouId].Heuristic)
+	fmt.Println("#############")
 }
 
 func isGameOver(board *rules.BoardState, ruleset rules.Ruleset) bool {
@@ -248,6 +244,7 @@ func createChildren(node *Node) []*Node {
 
 		childNode := createNode(node.YouId, moves, ns, node.Ruleset)
 		childNode.Parent = node
+		childNode.Depth = childNode.Parent.Depth + 1
 
 		children = append(children, childNode)
 	}
@@ -353,23 +350,36 @@ func calculateUCB(node *Node, snakeId string, move string) float64 {
 }
 
 func calculateNodeHeuristic(node *Node, snake rules.Snake) float64 {
-	closestFoodPath := FindNearestFood(node.Board, node.Ruleset, snake)
+	//closestFoodPath := FindNearestFood(node.Board, node.Ruleset, snake)
 	health := float64(snake.Health)
 
-	//foodScore := float64(1/len(closestFoodPath) + 1)
-	//lengthScore := float64(len(snake.Body))
+	////foodScore := float64(1/len(closestFoodPath) + 1)
+	////lengthScore := float64(len(snake.Body))
 
-	//numOtherSnakes := 1
-	//for _, s := range node.Board.Snakes {
-	//if s.ID != snake.ID {
-	//numOtherSnakes += 1
-	//}
-	//}
-	//otherSnakeScore := float64(1 / numOtherSnakes)
-	a := 60.0
-	b := 8.0
-	foodDistance := float64(len(closestFoodPath))
-	foodScore := a * math.Atan(health-foodDistance/b)
+	////numOtherSnakes := 1
+	////for _, s := range node.Board.Snakes {
+	////if s.ID != snake.ID {
+	////numOtherSnakes += 1
+	////}
+	////}
+	////otherSnakeScore := float64(1 / numOtherSnakes)
+	//a := 60.0
+	//b := 8.0
+	//foodDistance := float64(len(closestFoodPath))
+	//foodScore := a * math.Atan(health-foodDistance/b)
 
-	return foodScore
+	var otherSnakes []rules.Snake
+	total := 0
+	for _, snake := range node.Board.Snakes {
+		if snake.ID == node.YouId && snake.EliminatedCause == rules.NotEliminated {
+			total += 100
+		}
+		if snake.ID != node.YouId && snake.EliminatedCause == rules.NotEliminated {
+			otherSnakes = append(otherSnakes, snake)
+		}
+	}
+	snakeScore := 10 / (len(otherSnakes) + 1)
+	lengthScore := float64(health / 100)
+
+	return float64(total) + float64(snakeScore) + lengthScore
 }
