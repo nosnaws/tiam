@@ -336,7 +336,7 @@ func bestMoveUTC(node *Node, snakeId string) rules.SnakeMove {
 func calculateUCB(node *Node, snakeId string, move string) float64 {
 	payoff := node.Payoffs[snakeId]
 	explorationConstant := math.Sqrt(2)
-	alpha := float64(0.2)
+	alpha := float64(0.1)
 
 	numParentSims := float64(node.Plays)
 	score := payoff.Scores[move]

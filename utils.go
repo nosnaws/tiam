@@ -254,10 +254,27 @@ func GetSnakeMoves(snake rules.Snake, ruleset rules.Ruleset, board rules.BoardSt
 
 	snakeMoves := []rules.SnakeMove{}
 	for _, m := range nonNeckMoves {
+		// skip hazards
+		if isPointInSlice(dirToPoint(head, m), board.Hazards) {
+			continue
+		}
 		snakeMoves = append(snakeMoves, createSnakeMove(snake.ID, m))
 	}
 
 	return snakeMoves
+}
+
+func dirToPoint(head rules.Point, dir string) rules.Point {
+	if dir == rules.MoveLeft {
+		return rules.Point{X: head.X - 1, Y: head.Y}
+	}
+	if dir == rules.MoveRight {
+		return rules.Point{X: head.X + 1, Y: head.Y}
+	}
+	if dir == rules.MoveUp {
+		return rules.Point{X: head.X, Y: head.Y + 1}
+	}
+	return rules.Point{X: head.X, Y: head.Y - 1}
 }
 
 func createSnakeMove(id string, move string) rules.SnakeMove {
