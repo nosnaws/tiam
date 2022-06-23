@@ -59,14 +59,21 @@ type Board struct {
 	Hazards []Coord `json:"hazards"`
 }
 
+type Customizations struct {
+	Color string `json:"color"`
+	Head  string `json:"head"`
+	Tail  string `json:"tail"`
+}
+
 type Battlesnake struct {
-	ID      string  `json:"id"`
-	Name    string  `json:"name"`
-	Health  int32   `json:"health"`
-	Body    []Coord `json:"body"`
-	Head    Coord   `json:"head"`
-	Length  int32   `json:"length"`
-	Latency string  `json:"latency"`
+	ID             string         `json:"id"`
+	Name           string         `json:"name"`
+	Health         int32          `json:"health"`
+	Body           []Coord        `json:"body"`
+	Head           Coord          `json:"head"`
+	Length         int32          `json:"length"`
+	Latency        string         `json:"latency"`
+	Customizations Customizations `json:"customizations"`
 
 	// Used in non-standard game modes
 	Shout string `json:"shout"`
@@ -127,6 +134,7 @@ func HandleMove(w http.ResponseWriter, r *http.Request) {
 	}
 
 	txn := newrelic.FromContext(r.Context())
+	getBaseAttributes(txn, state)
 
 	response := move(state, txn)
 
