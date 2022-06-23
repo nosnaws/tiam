@@ -58,14 +58,34 @@ func MCTS(youId string, board *rules.BoardState, ruleset rules.Ruleset, txn *new
 		panic("could not parse duration")
 	}
 
-	start := time.Now()
+	//start := time.Now()
 
-	for time.Since(start).Milliseconds() < duration.Milliseconds() {
+	//for time.Since(start).Milliseconds() < duration.Milliseconds() {
+	//node := selectNode(root)
+	//child := expandNode(node)
+	//score := simulateNode(child)
+	//child.Plays += 1
+	//backpropagate(node, score)
+	//}
+
+loop:
+	for timeout := time.After(duration); ; {
 		node := selectNode(root)
 		child := expandNode(node)
 		score := simulateNode(child)
 		child.Plays += 1
 		backpropagate(node, score)
+
+		select {
+		case <-timeout:
+			break loop
+		default:
+			node := selectNode(root)
+			child := expandNode(node)
+			score := simulateNode(child)
+			child.Plays += 1
+			backpropagate(node, score)
+		}
 	}
 
 	fmt.Println("# ROOT #")
@@ -379,7 +399,7 @@ func calculateNodeHeuristic(node *Node, snake rules.Snake) float64 {
 		}
 	}
 	snakeScore := 10 / (len(otherSnakes) + 1)
-	lengthScore := float64(health / 100)
+	healthScore := float64(health / 100)
 
-	return float64(total) + float64(snakeScore) + lengthScore
+	return float64(total) + float64(snakeScore) + healthScore
 }
