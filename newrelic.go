@@ -49,11 +49,12 @@ func getBaseAttributes(txn *newrelic.Transaction, state GameState) {
 
 		opponentSnakeData, _ := json.Marshal(getSnakeData(snake))
 
-		txn.AddAttribute(fmt.Sprintf("snakeOpponent_%d_Name", i), snake.Name)
-		txn.AddAttribute(fmt.Sprintf("snakeOpponent_%d_Id", i), snake.ID)
-		txn.AddAttribute(fmt.Sprintf("snakeOpponent_%d_Health", i), snake.Health)
-		txn.AddAttribute(fmt.Sprintf("snakeOpponent_%d_Length", i), snake.Length)
-		txn.AddAttribute(fmt.Sprintf("snakeOpponent_%d_Data", i), encodeString(opponentSnakeData))
+		snakeIndex := i + 1
+		txn.AddAttribute(fmt.Sprintf("snakeOpponent_%d_Name", snakeIndex), snake.Name)
+		txn.AddAttribute(fmt.Sprintf("snakeOpponent_%d_Id", snakeIndex), snake.ID)
+		txn.AddAttribute(fmt.Sprintf("snakeOpponent_%d_Health", snakeIndex), snake.Health)
+		txn.AddAttribute(fmt.Sprintf("snakeOpponent_%d_Length", snakeIndex), snake.Length)
+		txn.AddAttribute(fmt.Sprintf("snakeOpponent_%d_Data", snakeIndex), encodeString(opponentSnakeData))
 	}
 }
 
