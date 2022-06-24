@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 
 	"github.com/newrelic/go-agent/v3/newrelic"
 )
@@ -100,68 +101,85 @@ type BattlesnakeMoveResponse struct {
 	Shout string `json:"shout,omitempty"`
 }
 
+func recordLatency(app *newrelic.Application, state GameState) {
+	latency, err := strconv.ParseFloat(state.You.Latency, 64)
+	if err == nil {
+		app.RecordCustomMetric("lastTurnLatency", latency)
+	}
+}
+
 // HTTP Handlers
 
-func HandleIndex(w http.ResponseWriter, r *http.Request) {
-	response := info()
+func HandleIndex(app *newrelic.Application) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		response := info()
 
-	w.Header().Set("Content-Type", "application/json")
-	err := json.NewEncoder(w).Encode(response)
-	if err != nil {
-		log.Printf("ERROR: Failed to encode info response, %s", err)
+		w.Header().Set("Content-Type", "application/json")
+		err := json.NewEncoder(w).Encode(response)
+		if err != nil {
+			log.Printf("ERROR: Failed to encode info response, %s", err)
+		}
 	}
 }
 
-func HandleStart(w http.ResponseWriter, r *http.Request) {
-	state := GameState{}
-	err := json.NewDecoder(r.Body).Decode(&state)
-	if err != nil {
-		log.Printf("ERROR: Failed to decode start json, %s", err)
-		return
-	}
+func HandleStart(app *newrelic.Application) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		state := GameState{}
+		err := json.NewDecoder(r.Body).Decode(&state)
+		if err != nil {
+			log.Printf("ERROR: Failed to decode start json, %s", err)
+			return
+		}
 
-	start(state)
+		start(state)
 
-	// Nothing to respond with here
-}
-
-func HandleMove(w http.ResponseWriter, r *http.Request) {
-	state := GameState{}
-	err := json.NewDecoder(r.Body).Decode(&state)
-	if err != nil {
-		log.Printf("ERROR: Failed to decode move json, %s", err)
-		return
-	}
-
-	txn := newrelic.FromContext(r.Context())
-	getBaseAttributes(txn, state)
-	txn.AddAttribute("lastTurnLatency", state.You.Latency)
-
-	response := move(state, txn)
-
-	w.Header().Set("Content-Type", "application/json")
-	err = json.NewEncoder(w).Encode(response)
-	if err != nil {
-		log.Printf("ERROR: Failed to encode move response, %s", err)
-		return
+		// Nothing to respond with here
 	}
 }
 
-func HandleEnd(w http.ResponseWriter, r *http.Request) {
-	state := GameState{}
-	err := json.NewDecoder(r.Body).Decode(&state)
-	if err != nil {
-		log.Printf("ERROR: Failed to decode end json, %s", err)
-		return
+func HandleMove(app *newrelic.Application) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		state := GameState{}
+		err := json.NewDecoder(r.Body).Decode(&state)
+		if err != nil {
+			log.Printf("ERROR: Failed to decode move json, %s", err)
+			return
+		}
+
+		txn := newrelic.FromContext(r.Context())
+		getBaseAttributes(txn, state)
+
+		recordLatency(app, state)
+
+		response := move(state, txn)
+
+		w.Header().Set("Content-Type", "application/json")
+		err = json.NewEncoder(w).Encode(response)
+		if err != nil {
+			log.Printf("ERROR: Failed to encode move response, %s", err)
+			return
+		}
+	}
+}
+
+func HandleEnd(app *newrelic.Application) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		state := GameState{}
+		err := json.NewDecoder(r.Body).Decode(&state)
+		if err != nil {
+			log.Printf("ERROR: Failed to decode end json, %s", err)
+			return
+		}
+
+		txn := newrelic.FromContext(r.Context())
+		getCustomAttributesEnd(txn, state)
+
+		recordLatency(app, state)
+
+		end(state)
+		// Nothing to respond with here
 	}
 
-	txn := newrelic.FromContext(r.Context())
-	getCustomAttributesEnd(txn, state)
-	txn.AddAttribute("lastTurnLatency", state.You.Latency)
-
-	end(state)
-
-	// Nothing to respond with here
 }
 
 // Middleware
@@ -187,10 +205,10 @@ func main() {
 		newrelic.ConfigLicense(nrLicenseKey),
 	)
 
-	http.HandleFunc(newrelic.WrapHandleFunc(app, "/", withServerID(HandleIndex)))
-	http.HandleFunc(newrelic.WrapHandleFunc(app, "/start", withServerID(HandleStart)))
-	http.HandleFunc(newrelic.WrapHandleFunc(app, "/move", withServerID(HandleMove)))
-	http.HandleFunc(newrelic.WrapHandleFunc(app, "/end", withServerID(HandleEnd)))
+	http.HandleFunc(newrelic.WrapHandleFunc(app, "/", withServerID(HandleIndex(app))))
+	http.HandleFunc(newrelic.WrapHandleFunc(app, "/start", withServerID(HandleStart(app))))
+	http.HandleFunc(newrelic.WrapHandleFunc(app, "/move", withServerID(HandleMove(app))))
+	http.HandleFunc(newrelic.WrapHandleFunc(app, "/end", withServerID(HandleEnd(app))))
 
 	log.Printf("Starting Battlesnake Server at http://0.0.0.0:%s...\n", port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
