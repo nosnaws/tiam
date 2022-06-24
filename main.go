@@ -135,6 +135,7 @@ func HandleMove(w http.ResponseWriter, r *http.Request) {
 
 	txn := newrelic.FromContext(r.Context())
 	getBaseAttributes(txn, state)
+	txn.AddAttribute("lastTurnLatency", state.You.Latency)
 
 	response := move(state, txn)
 
@@ -156,6 +157,7 @@ func HandleEnd(w http.ResponseWriter, r *http.Request) {
 
 	txn := newrelic.FromContext(r.Context())
 	getCustomAttributesEnd(txn, state)
+	txn.AddAttribute("lastTurnLatency", state.You.Latency)
 
 	end(state)
 
