@@ -89,7 +89,7 @@ loop:
 			child.Plays += 1
 			t.End()
 
-			t = txn.StartSegment("simulateNode")
+			t = txn.StartSegment("backpropagate")
 			backpropagate(node, score)
 			t.End()
 		}
