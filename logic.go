@@ -6,7 +6,6 @@ package main
 // from the list of possible moves!
 
 import (
-	"fmt"
 	"github.com/newrelic/go-agent/v3/newrelic"
 	"log"
 )
@@ -44,14 +43,14 @@ func end(state GameState) {
 // where to move -- valid moves are "up", "down", "left", or "right".
 // We've provided some code and comments to get you started.
 func move(state GameState, txn *newrelic.Transaction) BattlesnakeMoveResponse {
-	fmt.Println("START TURN: ", state.Turn)
+	log.Println("START TURN: ", state.Turn)
 	gameBoard := BuildBoard(state)
 	ruleset := BuildRuleset(state)
 	youId := state.You.ID
 
 	move := MCTS(youId, &gameBoard, ruleset, txn)
 
-	fmt.Println("RETURNING TURN: ", state.Turn)
+	log.Println("RETURNING TURN: ", state.Turn)
 	return BattlesnakeMoveResponse{
 		Move: move.Move,
 	}

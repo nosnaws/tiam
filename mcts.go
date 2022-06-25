@@ -2,6 +2,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"math"
 	"math/rand"
 	"sort"
@@ -82,22 +83,22 @@ loop:
 		}
 	}
 
-	fmt.Println("# ROOT #")
-	fmt.Println("youID", youId)
+	log.Println("# ROOT #")
+	log.Println("youID", youId)
 	printNode(root)
-	fmt.Println(root.PossibleMoves)
-	fmt.Println("# Children #")
+	log.Println(root.PossibleMoves)
+	log.Println("# Children #")
 	for _, child := range root.Children {
 		printNode(child)
 	}
 
 	bestMove := selectFinalMove(root)
-	fmt.Println("# Selected #")
-	fmt.Println(bestMove)
+	log.Println("# Selected #")
+	log.Println(bestMove)
 	addAttributes(txn, root, bestMove)
 	return bestMove
 
-	//fmt.Println("Could not find move, going left")
+	//log.Println("Could not find move, going left")
 	//return rules.SnakeMove{ID: root.YouId, Move: "left"}
 }
 
@@ -110,18 +111,18 @@ func selectNode(node *Node) *Node {
 }
 
 func printNode(node *Node) {
-	fmt.Println("#############")
-	fmt.Println("Depth", node.Depth)
-	fmt.Println("Plays", node.Payoffs[node.YouId].Plays)
-	fmt.Println("Scores", node.Payoffs[node.YouId].Scores)
-	fmt.Println("Heuristics", node.Payoffs[node.YouId].Heuristic)
-	fmt.Println("#############")
+	log.Println("#############")
+	log.Println("Depth", node.Depth)
+	log.Println("Plays", node.Payoffs[node.YouId].Plays)
+	log.Println("Scores", node.Payoffs[node.YouId].Scores)
+	log.Println("Heuristics", node.Payoffs[node.YouId].Heuristic)
+	log.Println("#############")
 }
 
 func isGameOver(board *rules.BoardState, ruleset rules.Ruleset) bool {
 	isGameOver, err := ruleset.IsGameOver(board)
 	if err != nil {
-		fmt.Println(board)
+		log.Println(board)
 		panic("tried to check if game was over")
 	}
 
@@ -248,8 +249,8 @@ func createChildren(node *Node) []*Node {
 		cs := node.Board.Clone()
 		ns, err := node.Ruleset.CreateNextBoardState(cs, moveSet)
 		if err != nil {
-			fmt.Println(cs)
-			fmt.Println(moveSet)
+			log.Println(cs)
+			log.Println(moveSet)
 			panic("could not create next board state")
 		}
 

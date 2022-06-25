@@ -205,6 +205,7 @@ func main() {
 	app, _ := newrelic.NewApplication(
 		newrelic.ConfigAppName("Tiam"),
 		newrelic.ConfigLicense(nrLicenseKey),
+		newrelic.ConfigInfoLogger(os.Stdout),
 	)
 
 	http.HandleFunc(newrelic.WrapHandleFunc(app, "/", withServerID(HandleIndex(app))))
