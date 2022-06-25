@@ -5,6 +5,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"runtime"
 	"strconv"
 
 	"github.com/newrelic/go-agent/v3/newrelic"
@@ -196,6 +197,9 @@ func withServerID(next http.HandlerFunc) http.HandlerFunc {
 // Main Entrypoint
 
 func main() {
+	log.Println("Version", runtime.Version())
+	log.Println("NumCPU", runtime.NumCPU())
+	log.Println("GOMAXPROCS", runtime.GOMAXPROCS(0))
 	nrLicenseKey := os.Getenv("NEW_RELIC_LICENSE_KEY")
 	port := os.Getenv("PORT")
 	if len(port) == 0 {
@@ -205,6 +209,9 @@ func main() {
 	app, _ := newrelic.NewApplication(
 		newrelic.ConfigAppName("Tiam"),
 		newrelic.ConfigLicense(nrLicenseKey),
+		func(config *newrelic.Config) {
+			config.DistributedTracer.Enabled = true
+		},
 	)
 
 	http.HandleFunc(newrelic.WrapHandleFunc(app, "/", withServerID(HandleIndex(app))))
