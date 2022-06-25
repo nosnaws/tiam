@@ -150,6 +150,7 @@ func HandleMove(app *newrelic.Application) http.HandlerFunc {
 		getBaseAttributes(txn, state)
 
 		recordLatency(app, state)
+		txn.AddAttribute("lastTurnLatency", state.You.Latency)
 
 		response := move(state, txn)
 
@@ -173,6 +174,7 @@ func HandleEnd(app *newrelic.Application) http.HandlerFunc {
 
 		txn := newrelic.FromContext(r.Context())
 		getCustomAttributesEnd(txn, state)
+		txn.AddAttribute("lastTurnLatency", state.You.Latency)
 
 		recordLatency(app, state)
 
