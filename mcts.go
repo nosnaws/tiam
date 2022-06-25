@@ -54,22 +54,11 @@ func MCTS(youId string, board *rules.BoardState, ruleset rules.Ruleset, txn *new
 	root := createNode(youId, fakeMoveSet, board, ruleset)
 	root.Children = createChildren(root)
 
-	duration, err := time.ParseDuration("250ms")
+	duration, err := time.ParseDuration("350ms")
 	if err != nil {
 		panic("could not parse duration")
 	}
 
-	//start := time.Now()
-
-	//for time.Since(start).Milliseconds() < duration.Milliseconds() {
-	//node := selectNode(root)
-	//child := expandNode(node)
-	//score := simulateNode(child)
-	//child.Plays += 1
-	//backpropagate(node, score)
-	//}
-
-	//defer txn.StartSegment("simulateNode").End()
 loop:
 	for timeout := time.After(duration); ; {
 		select {
