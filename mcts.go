@@ -69,17 +69,29 @@ func MCTS(youId string, board *rules.BoardState, ruleset rules.Ruleset, txn *new
 	//backpropagate(node, score)
 	//}
 
+	//defer txn.StartSegment("simulateNode").End()
 loop:
 	for timeout := time.After(duration); ; {
 		select {
 		case <-timeout:
 			break loop
 		default:
+			t := txn.StartSegment("selectNode")
 			node := selectNode(root)
+			t.End()
+
+			t = txn.StartSegment("expandNode")
 			child := expandNode(node)
-			score := simulateNode(child, txn)
+			t.End()
+
+			t = txn.StartSegment("simulateNode")
+			score := simulateNode(child)
 			child.Plays += 1
+			t.End()
+
+			t = txn.StartSegment("simulateNode")
 			backpropagate(node, score)
+			t.End()
 		}
 	}
 
@@ -143,8 +155,7 @@ func expandNode(node *Node) *Node {
 	return getRandomUnexploredChild(node)
 }
 
-func simulateNode(node *Node, txn *newrelic.Transaction) []SnakeScore {
-	defer txn.StartSegment("simulateNode").End()
+func simulateNode(node *Node) []SnakeScore {
 
 	ns := node.Board.Clone()
 
