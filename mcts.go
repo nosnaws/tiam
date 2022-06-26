@@ -6,6 +6,7 @@ import (
 	"math"
 	"math/rand"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/BattlesnakeOfficial/rules"
@@ -70,17 +71,30 @@ loop:
 			t.End()
 
 			t = txn.StartSegment("expandNode")
-			child := expandNode(node)
+			children := expandNode(node)
 			t.End()
 
 			t = txn.StartSegment("simulateNode")
-			score := simulateNode(child)
-			child.Plays += 1
+			var wg sync.WaitGroup
+			ch := make(chan []SnakeScore, len(children))
+			for _, child := range children {
+				wg.Add(1)
+				go func(node *Node, cha chan []SnakeScore) {
+					defer wg.Done()
+					simulateNode(node, cha)
+				}(child, ch)
+				child.Plays += 1
+			}
+			wg.Wait()
+			close(ch)
 			t.End()
 
 			t = txn.StartSegment("backpropagate")
-			backpropagate(node, score)
+			for s := range ch {
+				backpropagate(node, s)
+			}
 			t.End()
+
 		}
 	}
 
@@ -130,9 +144,9 @@ func isGameOver(board *rules.BoardState, ruleset rules.Ruleset) bool {
 	return isGameOver
 }
 
-func expandNode(node *Node) *Node {
+func expandNode(node *Node) []*Node {
 	if isGameOver(node.Board, node.Ruleset) {
-		return node
+		return []*Node{node}
 	}
 
 	if len(node.Children) == 0 {
@@ -141,11 +155,11 @@ func expandNode(node *Node) *Node {
 		node.Children = children
 	}
 
-	return getRandomUnexploredChild(node)
+	//return getRandomUnexploredChild(node)
+	return node.Children
 }
 
-func simulateNode(node *Node) []SnakeScore {
-
+func simulateNode(node *Node, ch chan []SnakeScore) {
 	ns := node.Board.Clone()
 
 	for isGameOver(ns, node.Ruleset) == false {
@@ -184,7 +198,7 @@ func simulateNode(node *Node) []SnakeScore {
 		scores = append(scores, score)
 	}
 
-	return scores
+	ch <- scores
 }
 
 func backpropagate(node *Node, scores []SnakeScore) {
@@ -397,6 +411,7 @@ func calculateNodeHeuristic(node *Node, snake rules.Snake) float64 {
 	}
 	snakeScore := 10 / (len(otherSnakes) + 1)
 	healthScore := float64(health / 100)
+	lengthScore := 0.2 * float64(len(snake.Body))
 
-	return float64(total) + float64(snakeScore) + healthScore
+	return float64(total) + float64(snakeScore) + healthScore + lengthScore
 }
