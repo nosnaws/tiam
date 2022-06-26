@@ -96,10 +96,10 @@ func isPointInSlice(p rules.Point, s []rules.Point) bool {
 }
 
 // http://prtamil.github.io/posts/cartesian-product-go/
-func GetCartesianProductOfMoves(board *rules.BoardState, ruleset rules.Ruleset) [][]rules.SnakeMove {
+func GetCartesianProductOfMoves(board *rules.BoardState, ruleset rules.Ruleset, hazards *Set) [][]rules.SnakeMove {
 	var allMoves [][]rules.SnakeMove
 	for _, snake := range board.Snakes {
-		moves := GetSnakeMoves(snake, ruleset, *board)
+		moves := GetSnakeMoves(snake, ruleset, *board, hazards)
 		allMoves = append(allMoves, moves)
 	}
 
@@ -197,7 +197,7 @@ func filterInBounds(p []rules.Point, h int32, w int32) []rules.Point {
 	return inBounds
 }
 
-func GetSnakeMoves(snake rules.Snake, ruleset rules.Ruleset, board rules.BoardState) []rules.SnakeMove {
+func GetSnakeMoves(snake rules.Snake, ruleset rules.Ruleset, board rules.BoardState, hazards *Set) []rules.SnakeMove {
 	head := snake.Body[0]
 	neck := snake.Body[1]
 
@@ -255,9 +255,12 @@ func GetSnakeMoves(snake rules.Snake, ruleset rules.Ruleset, board rules.BoardSt
 	snakeMoves := []rules.SnakeMove{}
 	for _, m := range nonNeckMoves {
 		// skip hazards
-		if isPointInSlice(dirToPoint(head, m), board.Hazards) {
+		if hazards.Has(dirToPoint(head, m)) {
 			continue
 		}
+		//if isPointInSlice(dirToPoint(head, m), board.Hazards) {
+		//continue
+		//}
 		snakeMoves = append(snakeMoves, createSnakeMove(snake.ID, m))
 	}
 

@@ -6,8 +6,10 @@ package main
 // from the list of possible moves!
 
 import (
-	"github.com/newrelic/go-agent/v3/newrelic"
+	//"github.com/newrelic/go-agent/v3/newrelic"
 	"log"
+
+	"github.com/newrelic/go-agent/v3/newrelic"
 )
 
 // This function is called when you register your Battlesnake on play.battlesnake.com

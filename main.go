@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"os"
 	"runtime"
+
 	"strconv"
 
 	"github.com/newrelic/go-agent/v3/newrelic"
@@ -166,6 +167,7 @@ func HandleMove(app *newrelic.Application) http.HandlerFunc {
 
 func HandleEnd(app *newrelic.Application) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
+
 		state := GameState{}
 		err := json.NewDecoder(r.Body).Decode(&state)
 		if err != nil {
@@ -209,9 +211,6 @@ func main() {
 	app, _ := newrelic.NewApplication(
 		newrelic.ConfigAppName("Tiam"),
 		newrelic.ConfigLicense(nrLicenseKey),
-		func(config *newrelic.Config) {
-			config.DistributedTracer.Enabled = true
-		},
 	)
 
 	http.HandleFunc(newrelic.WrapHandleFunc(app, "/", withServerID(HandleIndex(app))))

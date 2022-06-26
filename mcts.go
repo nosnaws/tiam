@@ -16,6 +16,7 @@ type Node struct {
 	YouId         string
 	Ruleset       rules.Ruleset
 	Board         *rules.BoardState
+	Hazards       *Set
 	Children      []*Node
 	Parent        *Node
 	Plays         int
@@ -39,19 +40,25 @@ type SnakeScore struct {
 }
 
 func addAttributes(txn *newrelic.Transaction, root *Node, selected rules.SnakeMove) {
-	txn.AddAttribute("totalPlays", root.Plays)
-	txn.AddAttribute("selectedMove", selected.Move)
+	if txn != nil {
+		txn.AddAttribute("totalPlays", root.Plays)
+		txn.AddAttribute("selectedMove", selected.Move)
+	}
 	for _, m := range root.PossibleMoves[root.YouId] {
 		scoreKey := fmt.Sprintf("moves.scores.%s", m.Move)
 		playsKey := fmt.Sprintf("moves.plays.%s", m.Move)
-		txn.AddAttribute(scoreKey, root.Payoffs[root.YouId].Scores[m.Move])
-		txn.AddAttribute(playsKey, root.Payoffs[root.YouId].Plays[m.Move])
+		if txn != nil {
+			txn.AddAttribute(scoreKey, root.Payoffs[root.YouId].Scores[m.Move])
+			txn.AddAttribute(playsKey, root.Payoffs[root.YouId].Plays[m.Move])
+		}
 	}
 }
 
 func MCTS(youId string, board *rules.BoardState, ruleset rules.Ruleset, txn *newrelic.Transaction) rules.SnakeMove {
+	defer txn.StartSegment("MCTS").End()
 	fakeMoveSet := make(map[string]rules.SnakeMove)
-	root := createNode(youId, fakeMoveSet, board, ruleset)
+	hs := CreateSet(board.Hazards)
+	root := createNode(youId, fakeMoveSet, board, ruleset, &hs)
 	root.Children = createChildren(root)
 
 	duration, err := time.ParseDuration("350ms")
@@ -65,22 +72,13 @@ loop:
 		case <-timeout:
 			break loop
 		default:
-			t := txn.StartSegment("selectNode")
 			node := selectNode(root)
-			t.End()
-
-			t = txn.StartSegment("expandNode")
 			child := expandNode(node)
-			t.End()
 
-			t = txn.StartSegment("simulateNode")
 			score := simulateNode(child)
 			child.Plays += 1
-			t.End()
 
-			t = txn.StartSegment("backpropagate")
 			backpropagate(node, score)
-			t.End()
 		}
 	}
 
@@ -97,10 +95,8 @@ loop:
 	log.Println("# Selected #")
 	log.Println(bestMove)
 	addAttributes(txn, root, bestMove)
+	log.Println("Total plays: ", root.Plays)
 	return bestMove
-
-	//log.Println("Could not find move, going left")
-	//return rules.SnakeMove{ID: root.YouId, Move: "left"}
 }
 
 func selectNode(node *Node) *Node {
@@ -155,7 +151,7 @@ func simulateNode(node *Node) []SnakeScore {
 				continue
 			}
 
-			moves := GetSnakeMoves(snake, node.Ruleset, *ns)
+			moves := GetSnakeMoves(snake, node.Ruleset, *ns, node.Hazards)
 			randomMove := moves[rand.Intn(len(moves))]
 			allMoves = append(allMoves, randomMove)
 		}
@@ -242,7 +238,7 @@ func getMove(id string, moves []rules.SnakeMove) *rules.SnakeMove {
 }
 
 func createChildren(node *Node) []*Node {
-	productOfMoves := GetCartesianProductOfMoves(node.Board, node.Ruleset)
+	productOfMoves := GetCartesianProductOfMoves(node.Board, node.Ruleset, node.Hazards)
 
 	var children []*Node
 	for _, moveSet := range productOfMoves {
@@ -259,7 +255,7 @@ func createChildren(node *Node) []*Node {
 			moves[m.ID] = m
 		}
 
-		childNode := createNode(node.YouId, moves, ns, node.Ruleset)
+		childNode := createNode(node.YouId, moves, ns, node.Ruleset, node.Hazards)
 		childNode.Parent = node
 		childNode.Depth = childNode.Parent.Depth + 1
 
@@ -269,16 +265,16 @@ func createChildren(node *Node) []*Node {
 	return children
 }
 
-func createNode(youId string, moveSet map[string]rules.SnakeMove, board *rules.BoardState, ruleset rules.Ruleset) *Node {
+func createNode(youId string, moveSet map[string]rules.SnakeMove, board *rules.BoardState, ruleset rules.Ruleset, hazards *Set) *Node {
 	possibleMoves := make(map[string][]rules.SnakeMove)
 	payoffs := make(map[string]Payoff)
 	for _, snake := range board.Snakes {
-		moves := GetSnakeMoves(snake, ruleset, *board)
+		moves := GetSnakeMoves(snake, ruleset, *board, hazards)
 		possibleMoves[snake.ID] = moves
 		payoffs[snake.ID] = createPayoff(moves)
 	}
 
-	return &Node{YouId: youId, PossibleMoves: possibleMoves, Board: board, Ruleset: ruleset, Payoffs: payoffs, MoveSet: moveSet}
+	return &Node{YouId: youId, PossibleMoves: possibleMoves, Board: board, Ruleset: ruleset, Payoffs: payoffs, MoveSet: moveSet, Hazards: hazards}
 }
 
 func createPayoff(moves []rules.SnakeMove) Payoff {
