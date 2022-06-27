@@ -1,12 +1,11 @@
 package game
 
-type SnakeId uint8
-type TileIndex uint16
+type SnakeId uint16
 
 type Tile struct {
 	flags uint8
 	id    SnakeId
-	idx   TileIndex
+	idx   uint16
 }
 
 const SNAKE_HEAD uint8 = 0x06
@@ -26,7 +25,7 @@ func CreateEmptyTile() Tile {
 	}
 }
 
-func CreateHeadTile(id SnakeId, tailIdx TileIndex) Tile {
+func CreateHeadTile(id SnakeId, tailIdx uint16) Tile {
 	return Tile{
 		flags: SNAKE_HEAD,
 		id:    id,
@@ -34,7 +33,7 @@ func CreateHeadTile(id SnakeId, tailIdx TileIndex) Tile {
 	}
 }
 
-func CreateBodyTile(id SnakeId, nextIdx TileIndex) Tile {
+func CreateBodyTile(id SnakeId, nextIdx uint16) Tile {
 	return Tile{
 		flags: SNAKE_BODY_PART,
 		id:    id,
@@ -42,7 +41,7 @@ func CreateBodyTile(id SnakeId, nextIdx TileIndex) Tile {
 	}
 }
 
-func CreateDoubleStackTile(id SnakeId, nextIdx TileIndex) Tile {
+func CreateDoubleStackTile(id SnakeId, nextIdx uint16) Tile {
 	return Tile{
 		flags: DOUBLE_STACK_PART,
 		id:    id,
@@ -113,19 +112,19 @@ func (t *Tile) IsStacked() bool {
 	return t.IsDoubleStack() || t.IsTripleStack()
 }
 
-func (t *Tile) SetHead(id SnakeId, tailIdx TileIndex) {
+func (t *Tile) SetHead(id SnakeId, tailIdx uint16) {
 	t.flags = (t.flags & ^KIND_MASK) | SNAKE_HEAD
 	t.id = id
 	t.idx = tailIdx
 }
 
-func (t *Tile) SetBodyPart(id SnakeId, nextIdx TileIndex) {
+func (t *Tile) SetBodyPart(id SnakeId, nextIdx uint16) {
 	t.flags = (t.flags & ^KIND_MASK) | SNAKE_BODY_PART
 	t.id = id
 	t.idx = nextIdx
 }
 
-func (t *Tile) SetDoubleStack(id SnakeId, nextIdx TileIndex) {
+func (t *Tile) SetDoubleStack(id SnakeId, nextIdx uint16) {
 	t.flags = (t.flags & ^KIND_MASK) | DOUBLE_STACK_PART
 	t.id = id
 	t.idx = nextIdx
@@ -144,6 +143,6 @@ func (t *Tile) GetSnakeId() (SnakeId, bool) {
 	return 0, false
 }
 
-func (t *Tile) GetIdx() TileIndex {
+func (t *Tile) GetIdx() uint16 {
 	return t.idx
 }
