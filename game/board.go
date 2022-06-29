@@ -1,13 +1,25 @@
 package game
 
+import "fmt"
+
 type board struct {
 	list    []Tile
 	ids     map[string]SnakeId
 	heads   map[SnakeId]uint16
 	lengths map[SnakeId]uint8
-	healths map[SnakeId]uint8
+	healths map[SnakeId]int8
 	width   uint16
 	height  uint16
+}
+
+type snakeMove struct {
+	id  SnakeId
+	dir Move
+}
+
+type idToNewHead struct {
+	id    SnakeId
+	index uint16
 }
 
 func BuildBoard(state GameState) board {
@@ -17,7 +29,7 @@ func BuildBoard(state GameState) board {
 
 	ids := make(map[string]SnakeId)
 	lengths := make(map[SnakeId]uint8)
-	healths := make(map[SnakeId]uint8)
+	healths := make(map[SnakeId]int8)
 	heads := make(map[SnakeId]uint16)
 
 	curSnakeId := 1
@@ -36,16 +48,16 @@ func BuildBoard(state GameState) board {
 
 	for _, s := range state.Board.Snakes {
 		length := len(s.Body)
-		head := Point{X: int8(s.Head.X), Y: int8(s.Head.Y)}
+		head := Point{X: int8(s.Body[0].X), Y: int8(s.Body[0].Y)}
 		tail := Point{X: int8(s.Body[length-1].X), Y: int8(s.Body[length-1].Y)}
 		headIndex := pointToIndex(head, width)
 		headId := ids[s.ID]
 
 		lengths[headId] = uint8(length)
-		healths[headId] = uint8(s.Health)
+		healths[headId] = int8(s.Health)
 		heads[headId] = headIndex
 
-		for i := length - 1; i > 1; i-- {
+		for i := length - 1; i > 0; i-- {
 			bodyPart := Point{X: int8(s.Body[i].X), Y: int8(s.Body[i].Y)}
 			nextBodyPart := Point{X: int8(s.Body[i-1].X), Y: int8(s.Body[i-1].Y)}
 			index := pointToIndex(bodyPart, width)
@@ -86,6 +98,97 @@ func BuildBoard(state GameState) board {
 	}
 }
 
+func (b *board) advanceBoard(moves []snakeMove) {
+	newHeads := make(map[SnakeId]uint16, len(moves))
+	for _, m := range moves {
+		headIndex := b.heads[m.id]
+		newHeads[m.id] = indexInDirection(m.dir, headIndex, b.width)
+	}
+
+	deadSnakes := make(map[SnakeId]struct{}, len(newHeads))
+	// head to head with larger or equal snake
+	for id, index := range newHeads {
+		for oId, oIndex := range newHeads {
+			if oIndex == index && oId != id && b.lengths[oId] >= b.lengths[id] {
+				deadSnakes[id] = struct{}{}
+			}
+		}
+	}
+
+	for id, index := range newHeads {
+		if _, ok := deadSnakes[id]; ok {
+			continue
+		}
+
+		moveTile := b.list[index]
+
+		// reduce health
+		b.healths[id] -= 1
+
+		// feed snakes
+		if moveTile.IsFood() {
+			b.healths[id] = 100
+		}
+
+		if moveTile.IsHazard() {
+			// TODO: handle other types of hazard damage
+			b.healths[id] -= 100
+		}
+
+		// snake collision
+		if moveTile.IsSnakeSegment() {
+			snakeTailIndex := b.list[b.heads[moveTile.id]].GetIdx()
+			didSnakeMove := newHeads[moveTile.id] == b.heads[moveTile.id]
+
+			fmt.Println("Found snake body", snakeTailIndex)
+			if didSnakeMove == true || index != snakeTailIndex || b.list[newHeads[moveTile.id]].IsFood() {
+				fmt.Println("Snake collision", id)
+				deadSnakes[id] = struct{}{}
+			}
+		}
+
+		if b.isOffBoard(indexToPoint(index, b.width)) {
+			fmt.Println("Off board", id)
+			deadSnakes[id] = struct{}{}
+		}
+
+		// check for out of health
+		if b.healths[id] <= 0 {
+			fmt.Println(b.healths)
+			fmt.Println("Out of health", id)
+			deadSnakes[id] = struct{}{}
+		}
+
+		if _, ok := deadSnakes[id]; ok {
+			continue
+		}
+
+		// move snake!
+		var tailIndex uint16
+		if moveTile.IsFood() {
+			tailIndex = b.list[b.heads[id]].GetIdx()
+		} else {
+			oldTailIndex := b.list[b.heads[id]].GetIdx()
+			tailIndex = b.list[oldTailIndex].GetIdx()
+
+			// remove tail tile since snake did not eat
+			b.list[oldTailIndex].Clear()
+		}
+
+		// update neck to point to new head
+		oldHeadIndex := b.heads[id]
+		b.setTileSnakeBodyPart(oldHeadIndex, id, index)
+
+		// move snake head
+		b.setTileSnakeHead(index, id, tailIndex)
+		b.heads[id] = index
+	}
+
+	for id := range deadSnakes {
+		b.kill(id)
+	}
+}
+
 func (b *board) kill(id SnakeId) {
 	headIndex := b.heads[id]
 	head := b.list[headIndex]
@@ -93,8 +196,9 @@ func (b *board) kill(id SnakeId) {
 
 	currentIndex := tailIndex
 	for currentIndex != headIndex {
+		nextIndex := b.list[currentIndex].GetIdx()
 		b.clearTile(currentIndex)
-		currentIndex = b.list[currentIndex].GetIdx()
+		currentIndex = nextIndex
 	}
 
 	b.clearTile(headIndex)

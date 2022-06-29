@@ -19,11 +19,12 @@ func indexToPoint(index uint16, width uint16) Point {
 }
 
 func pointToIndex(p Point, width uint16) uint16 {
-	return uint16(p.Y)*width + uint16(p.X)
+	return uint16(p.Y*int8(width) + p.X)
 }
 
 func indexInDirection(m Move, cur uint16, width uint16) uint16 {
-	return pointToIndex(addPoints(indexToPoint(cur, width), moveToPoint(m)), width)
+	p := addPoints(indexToPoint(cur, width), moveToPoint(m))
+	return pointToIndex(p, width)
 }
 
 func moveToPoint(m Move) Point {
