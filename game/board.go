@@ -3,13 +3,14 @@ package game
 import "fmt"
 
 type board struct {
-	list    []Tile
-	ids     map[string]SnakeId
-	heads   map[SnakeId]uint16
-	lengths map[SnakeId]uint8
-	healths map[SnakeId]int8
-	width   uint16
-	height  uint16
+	list      []Tile
+	ids       map[string]SnakeId
+	heads     map[SnakeId]uint16
+	lengths   map[SnakeId]uint8
+	healths   map[SnakeId]int8
+	width     uint16
+	height    uint16
+	isWrapped bool
 }
 
 type snakeMove struct {
@@ -88,13 +89,14 @@ func BuildBoard(state GameState) board {
 	}
 
 	return board{
-		width:   width,
-		height:  height,
-		list:    list,
-		ids:     ids,
-		lengths: lengths,
-		healths: healths,
-		heads:   heads,
+		width:     width,
+		height:    height,
+		list:      list,
+		ids:       ids,
+		lengths:   lengths,
+		healths:   healths,
+		heads:     heads,
+		isWrapped: state.Game.Ruleset.Name == "wrapped",
 	}
 }
 
@@ -102,22 +104,18 @@ func (b *board) advanceBoard(moves []snakeMove) {
 	newHeads := make(map[SnakeId]uint16, len(moves))
 	for _, m := range moves {
 		headIndex := b.heads[m.id]
-		newHeads[m.id] = indexInDirection(m.dir, headIndex, b.width)
+		newHeads[m.id] = indexInDirection(m.dir, headIndex, b.width, b.height, b.isWrapped)
 	}
 
 	deadSnakes := make(map[SnakeId]struct{}, len(newHeads))
-	// head to head with larger or equal snake
+
+	// do damage food and stuff
 	for id, index := range newHeads {
+		// head to head with larger or equal snake
 		for oId, oIndex := range newHeads {
 			if oIndex == index && oId != id && b.lengths[oId] >= b.lengths[id] {
 				deadSnakes[id] = struct{}{}
 			}
-		}
-	}
-
-	for id, index := range newHeads {
-		if _, ok := deadSnakes[id]; ok {
-			continue
 		}
 
 		moveTile := b.list[index]
@@ -138,10 +136,12 @@ func (b *board) advanceBoard(moves []snakeMove) {
 		// snake collision
 		if moveTile.IsSnakeSegment() {
 			snakeTailIndex := b.list[b.heads[moveTile.id]].GetIdx()
-			didSnakeMove := newHeads[moveTile.id] == b.heads[moveTile.id]
+			isNonTailSegment := index != snakeTailIndex
+			didSnakeEat := b.list[newHeads[moveTile.id]].IsFood()
 
 			fmt.Println("Found snake body", snakeTailIndex)
-			if didSnakeMove == true || index != snakeTailIndex || b.list[newHeads[moveTile.id]].IsFood() {
+			fmt.Println("will snake eat ", b.list[newHeads[moveTile.id]].IsFood())
+			if isNonTailSegment || didSnakeEat {
 				fmt.Println("Snake collision", id)
 				deadSnakes[id] = struct{}{}
 			}
@@ -158,34 +158,44 @@ func (b *board) advanceBoard(moves []snakeMove) {
 			fmt.Println("Out of health", id)
 			deadSnakes[id] = struct{}{}
 		}
+	}
 
-		if _, ok := deadSnakes[id]; ok {
+	//  kill snakes
+	for id := range deadSnakes {
+		b.kill(id)
+	}
+
+	// move tails
+	for id, index := range newHeads {
+		if b.healths[id] < 1 {
 			continue
 		}
 
-		// move snake!
-		var tailIndex uint16
-		if moveTile.IsFood() {
-			tailIndex = b.list[b.heads[id]].GetIdx()
-		} else {
-			oldTailIndex := b.list[b.heads[id]].GetIdx()
-			tailIndex = b.list[oldTailIndex].GetIdx()
+		tailIndex := b.list[b.heads[id]].GetIdx()
+		didSnakeEat := b.isTileFood(index)
 
-			// remove tail tile since snake did not eat
-			b.list[oldTailIndex].Clear()
+		if didSnakeEat {
+			continue
 		}
 
-		// update neck to point to new head
-		oldHeadIndex := b.heads[id]
-		b.setTileSnakeBodyPart(oldHeadIndex, id, index)
-
-		// move snake head
-		b.setTileSnakeHead(index, id, tailIndex)
-		b.heads[id] = index
+		//  update head with new tail
+		b.setTileSnakeHead(b.heads[id], id, b.list[tailIndex].GetIdx())
+		// clear tail spot
+		b.clearTile(tailIndex)
 	}
 
-	for id := range deadSnakes {
-		b.kill(id)
+	// move heads
+	for id, index := range newHeads {
+		if b.healths[id] < 1 {
+			continue
+		}
+
+		oldHeadIndex := b.heads[id]
+		tailIndex := b.list[oldHeadIndex].GetIdx()
+		b.setTileSnakeHead(index, id, tailIndex)
+		b.heads[id] = index
+		//  update neck with new head
+		b.setTileSnakeBodyPart(oldHeadIndex, id, index)
 	}
 }
 
@@ -205,6 +215,29 @@ func (b *board) kill(id SnakeId) {
 	b.lengths[id] = 0
 	b.healths[id] = 0
 	b.heads[id] = 0
+}
+
+func (b *board) getMovesForSnake(id SnakeId) []snakeMove {
+	moves := []Move{Up, Left, Right, Down}
+	var possibleMoves []snakeMove
+	snakeHead := b.heads[id]
+
+	for _, dir := range moves {
+		dirIndex := indexInDirection(dir, snakeHead, b.width, b.height, b.isWrapped)
+		isHazard := b.list[dirIndex].IsHazard()
+		if isHazard {
+			continue
+		}
+
+		isOutOfBounds := b.isOffBoard(indexToPoint(dirIndex, b.width))
+		if isOutOfBounds {
+			continue
+		}
+
+		possibleMoves = append(possibleMoves, snakeMove{id: id, dir: dir})
+	}
+
+	return possibleMoves
 }
 
 func (b *board) setTileSnakeDoubleStack(index uint16, id SnakeId, nextIdx uint16) {
@@ -253,4 +286,15 @@ func (b *board) getSnakeIdAtTile(index uint16) (SnakeId, bool) {
 
 func (b *board) isOffBoard(p Point) bool {
 	return p.X < 0 || p.X >= int8(b.width) || p.Y < 0 || p.Y >= int8(b.height)
+}
+
+func (b *board) isGameOver() bool {
+	var snakesLeft []SnakeId
+	for id, health := range b.healths {
+		if health > 0 {
+			snakesLeft = append(snakesLeft, id)
+		}
+	}
+
+	return len(snakesLeft) < 2
 }
