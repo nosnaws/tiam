@@ -10,6 +10,8 @@ import (
 	"log"
 
 	"github.com/newrelic/go-agent/v3/newrelic"
+	"github.com/nosnaws/tiam/brain"
+	fastGame "github.com/nosnaws/tiam/game"
 )
 
 // This function is called when you register your Battlesnake on play.battlesnake.com
@@ -44,16 +46,29 @@ func end(state GameState) {
 // This function is called on every turn of a game. Use the provided GameState to decide
 // where to move -- valid moves are "up", "down", "left", or "right".
 // We've provided some code and comments to get you started.
-func move(state GameState, txn *newrelic.Transaction) BattlesnakeMoveResponse {
+func move(state fastGame.GameState, txn *newrelic.Transaction) BattlesnakeMoveResponse {
 	log.Println("START TURN: ", state.Turn)
-	gameBoard := BuildBoard(state)
-	ruleset := BuildRuleset(state)
-	youId := state.You.ID
+	gameBoard := fastGame.BuildBoard(state)
 
-	move := MCTS(youId, &gameBoard, ruleset, txn)
+	move := brain.MCTS(&gameBoard)
 
 	log.Println("RETURNING TURN: ", state.Turn)
+	if move.Dir == fastGame.Left {
+		return BattlesnakeMoveResponse{
+			Move: "left",
+		}
+	}
+	if move.Dir == fastGame.Right {
+		return BattlesnakeMoveResponse{
+			Move: "right",
+		}
+	}
+	if move.Dir == fastGame.Up {
+		return BattlesnakeMoveResponse{
+			Move: "up",
+		}
+	}
 	return BattlesnakeMoveResponse{
-		Move: move.Move,
+		Move: "down",
 	}
 }

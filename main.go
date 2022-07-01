@@ -10,6 +10,7 @@ import (
 	"strconv"
 
 	"github.com/newrelic/go-agent/v3/newrelic"
+	fastGame "github.com/nosnaws/tiam/game"
 )
 
 const ServerID = "nosnaws/tiam"
@@ -141,7 +142,7 @@ func HandleStart(app *newrelic.Application) http.HandlerFunc {
 
 func HandleMove(app *newrelic.Application) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		state := GameState{}
+		state := fastGame.GameState{}
 		err := json.NewDecoder(r.Body).Decode(&state)
 		if err != nil {
 			log.Printf("ERROR: Failed to decode move json, %s", err)
@@ -149,9 +150,9 @@ func HandleMove(app *newrelic.Application) http.HandlerFunc {
 		}
 
 		txn := newrelic.FromContext(r.Context())
-		getBaseAttributes(txn, state)
+		//getBaseAttributes(txn, state)
 
-		recordLatency(app, state)
+		//recordLatency(app, state)
 		txn.AddAttribute("lastTurnLatency", state.You.Latency)
 
 		response := move(state, txn)

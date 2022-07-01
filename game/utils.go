@@ -19,7 +19,7 @@ func indexToPoint(index uint16, width uint16) Point {
 }
 
 func pointToIndex(p Point, width uint16) uint16 {
-	return uint16(p.Y*int8(width) + p.X)
+	return uint16(int16(p.Y)*int16(width) + int16(p.X))
 }
 
 func indexInDirection(m Move, cur uint16, width, height uint16, isWrapped bool) uint16 {
@@ -59,4 +59,42 @@ func moveToPoint(m Move) Point {
 
 func addPoints(a, b Point) Point {
 	return Point{X: a.X + b.X, Y: a.Y + b.Y}
+}
+
+func GetCartesianProductOfMoves(board FastBoard) [][]SnakeMove {
+	var allMoves [][]SnakeMove
+	for id, h := range board.Healths {
+		if h > 0 {
+			moves := board.GetMovesForSnake(id)
+			allMoves = append(allMoves, moves)
+		}
+	}
+
+	var temp [][]SnakeMove
+	for _, a := range allMoves[0] {
+		temp = append(temp, []SnakeMove{a})
+	}
+
+	for i := 1; i < len(allMoves); i++ {
+		temp = cartesianProduct(temp, allMoves[i])
+	}
+
+	return temp
+}
+
+func cartesianProduct(movesA [][]SnakeMove, movesB []SnakeMove) [][]SnakeMove {
+	var result [][]SnakeMove
+	for _, a := range movesA {
+		for _, b := range movesB {
+			var temp []SnakeMove
+			for _, m := range a {
+				temp = append(temp, m)
+			}
+
+			temp = append(temp, b)
+			result = append(result, temp)
+		}
+	}
+
+	return result
 }

@@ -25,3 +25,22 @@ func TestIndexInDirection(t *testing.T) {
 	}
 
 }
+
+func TestMoveToPoint(t *testing.T) {
+	p := Point{X: -1, Y: 0}
+	if moveToPoint(Left) != p {
+		panic("Not left!")
+	}
+	p = Point{X: 1, Y: 0}
+	if moveToPoint(Right) != p {
+		panic("Not right!")
+	}
+	p = Point{X: 0, Y: 1}
+	if moveToPoint(Up) != p {
+		panic("Not up!")
+	}
+	p = Point{X: 0, Y: -1}
+	if moveToPoint(Down) != p {
+		panic("Not down!")
+	}
+}
