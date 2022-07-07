@@ -44,3 +44,92 @@ func TestMoveToPoint(t *testing.T) {
 		panic("Not down!")
 	}
 }
+
+func TestRandomCartesianProductWrapped(t *testing.T) {
+	//t.Skip()
+	// _ _ _ _ _
+	// _ 2 _ 3 _
+	// _ _ _ _ _
+	// _ 4 _ h _
+	// _ _ _ _ _
+	me := Battlesnake{
+		ID:     "me",
+		Health: 100,
+		Body:   []Coord{{X: 3, Y: 1}, {X: 3, Y: 1}, {X: 3, Y: 1}},
+	}
+	two := Battlesnake{
+		ID:     "two",
+		Health: 100,
+		Body:   []Coord{{X: 1, Y: 3}, {X: 1, Y: 3}, {X: 1, Y: 3}},
+	}
+	three := Battlesnake{
+		ID:     "three",
+		Health: 100,
+		Body:   []Coord{{X: 3, Y: 3}, {X: 3, Y: 3}, {X: 3, Y: 3}},
+	}
+	four := Battlesnake{
+		ID:     "four",
+		Health: 100,
+		Body:   []Coord{{X: 1, Y: 1}, {X: 1, Y: 1}, {X: 1, Y: 1}},
+	}
+	state := GameState{
+		Turn: 1,
+		Game: Game{
+			Ruleset: Ruleset{
+				Name: "wrapped",
+			},
+		},
+		Board: Board{
+			Snakes: []Battlesnake{me, two, three, four},
+			Height: 5,
+			Width:  5,
+		},
+
+		You: me,
+	}
+	board := BuildBoard(state)
+
+	cartMoves := GetCartesianProductOfMoves(board)
+
+	if len(cartMoves) != 256 {
+		fmt.Println("total moves ", len(cartMoves))
+		panic("Did not create 256 possible states 4 to the 4nd")
+	}
+}
+
+func TestRandomCartesianProduct(t *testing.T) {
+	//t.Skip()
+	// e _ _
+	// _ f _
+	// _ _ h
+	me := Battlesnake{
+		ID:     "me",
+		Health: 100,
+		Head:   Coord{X: 2, Y: 0},
+		Body:   []Coord{{X: 2, Y: 0}, {X: 2, Y: 0}, {X: 2, Y: 0}},
+	}
+	two := Battlesnake{
+		ID:     "two",
+		Health: 100,
+		Head:   Coord{X: 0, Y: 2},
+		Body:   []Coord{{X: 0, Y: 2}, {X: 0, Y: 2}, {X: 0, Y: 2}},
+	}
+	state := GameState{
+		Turn: 1,
+		Board: Board{
+			Snakes: []Battlesnake{me, two},
+			Height: 3,
+			Width:  3,
+			Food:   []Coord{{X: 1, Y: 1}},
+		},
+		You: me,
+	}
+	board := BuildBoard(state)
+
+	cartMoves := GetCartesianProductOfMoves(board)
+
+	if len(cartMoves) != 4 {
+		fmt.Println("total moves ", len(cartMoves))
+		panic("Did not create 4 possible states 2 to the 2nd")
+	}
+}

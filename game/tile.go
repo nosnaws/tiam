@@ -89,7 +89,7 @@ func (t *Tile) IsSnakeHead() bool {
 }
 
 func (t *Tile) IsSnakeSegment() bool {
-	return t.IsSnakeBody() || t.IsDoubleStack() || t.IsTripleStack()
+	return t.IsSnakeHead() || t.IsSnakeBodyPart() || t.IsDoubleStack() || t.IsTripleStack()
 }
 
 func (t *Tile) IsSnakeBodyPart() bool {
@@ -128,6 +128,11 @@ func (t *Tile) SetDoubleStack(id SnakeId, nextIdx uint16) {
 	t.flags = (t.flags & ^KIND_MASK) | DOUBLE_STACK_PART
 	t.id = id
 	t.idx = nextIdx
+}
+
+func (t *Tile) SetTripleStack(id SnakeId) {
+	t.flags = (t.flags & ^KIND_MASK) | TRIPLE_STACK_PART
+	t.id = id
 }
 
 func (t *Tile) Clear() {

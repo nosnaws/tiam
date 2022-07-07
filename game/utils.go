@@ -61,6 +61,22 @@ func addPoints(a, b Point) Point {
 	return Point{X: a.X + b.X, Y: a.Y + b.Y}
 }
 
+func isSnakeInitialState(s Battlesnake) bool {
+	head := s.Body[0]
+	bp1 := s.Body[1]
+	bp2 := s.Body[2]
+
+	return head == bp1 && head == bp2
+}
+
+func isSnakeDoubleButt(s Battlesnake) bool {
+	l := len(s.Body)
+	tail := s.Body[l-1]
+	beforeTail := s.Body[l-2]
+
+	return tail == beforeTail
+}
+
 func GetCartesianProductOfMoves(board FastBoard) [][]SnakeMove {
 	var allMoves [][]SnakeMove
 	for id, h := range board.Healths {
