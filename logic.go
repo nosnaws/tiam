@@ -23,10 +23,10 @@ func info() fastGame.BattlesnakeInfoResponse {
 	log.Println("INFO")
 	return fastGame.BattlesnakeInfoResponse{
 		APIVersion: "1",
-		Author:     "",           // TODO: Your Battlesnake username
-		Color:      "#002080",    // TODO: Personalize
-		Head:       "evil",       // TODO: Personalize
-		Tail:       "fat-rattle", // TODO: Personalize
+		Author:     "nosnaws",       // TODO: Your Battlesnake username
+		Color:      "#002080",       // TODO: Personalize
+		Head:       "alligator",     // TODO: Personalize
+		Tail:       "cosmic-horror", // TODO: Personalize
 	}
 }
 
