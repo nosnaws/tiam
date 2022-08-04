@@ -22,11 +22,16 @@ func pointToIndex(p Point, width uint16) uint16 {
 	return uint16(int16(p.Y)*int16(width) + int16(p.X))
 }
 
-func indexInDirection(m Move, cur uint16, width, height uint16, isWrapped bool) uint16 {
+func pointInDirection(m Move, cur uint16, width, height uint16, isWrapped bool) Point {
 	p := addPoints(indexToPoint(cur, width), moveToPoint(m))
 	if isWrapped {
 		p = adjustForWrapped(p, width, height)
 	}
+	return p
+}
+
+func indexInDirection(m Move, cur uint16, width, height uint16, isWrapped bool) uint16 {
+	p := pointInDirection(m, cur, width, height, isWrapped)
 	return pointToIndex(p, width)
 }
 

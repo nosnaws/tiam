@@ -50,7 +50,7 @@ func move(state fastGame.GameState, txn *newrelic.Transaction) BattlesnakeMoveRe
 	log.Println("START TURN: ", state.Turn)
 	gameBoard := fastGame.BuildBoard(state)
 
-	move := brain.MCTS(&gameBoard)
+	move := brain.MCTS(&gameBoard, txn)
 
 	log.Println("RETURNING TURN: ", state.Turn)
 	if move.Dir == fastGame.Left {

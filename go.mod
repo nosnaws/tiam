@@ -4,7 +4,6 @@ go 1.18
 
 require (
 	github.com/BattlesnakeOfficial/rules v1.0.33
-	github.com/jinzhu/copier v0.3.5
 	github.com/newrelic/go-agent/v3 v3.16.1
 )
 

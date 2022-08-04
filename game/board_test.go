@@ -512,7 +512,7 @@ func TestAdvanceBoardTurnDamage(t *testing.T) {
 func TestAdvanceBoardHazardDamage(t *testing.T) {
 	//t.Skip()
 	// _ _ _
-	// _ _ f
+	// _ _ x
 	// s s h
 	me := Battlesnake{
 		ID:     "me",
@@ -529,6 +529,13 @@ func TestAdvanceBoardHazardDamage(t *testing.T) {
 			Hazards: []Coord{{X: 2, Y: 1}},
 		},
 		You: me,
+		Game: Game{
+			Ruleset: Ruleset{
+				Settings: Settings{
+					HazardDamagePerTurn: 100,
+				},
+			},
+		},
 	}
 	board := BuildBoard(state)
 	id := board.ids["me"]
@@ -537,6 +544,84 @@ func TestAdvanceBoardHazardDamage(t *testing.T) {
 	board.AdvanceBoard(moves)
 
 	if board.Healths[id] > 0 {
+		panic("Snake did not die!")
+	}
+}
+
+func TestAdvanceBoardHazardHealing(t *testing.T) {
+	//t.Skip()
+	// _ _ _
+	// _ _ x
+	// s s h
+	me := Battlesnake{
+		ID:     "me",
+		Health: 50,
+		Head:   Coord{X: 2, Y: 0},
+		Body:   []Coord{{X: 2, Y: 0}, {X: 1, Y: 0}, {X: 0, Y: 0}},
+	}
+	state := GameState{
+		Turn: 3,
+		Board: Board{
+			Snakes:  []Battlesnake{me},
+			Height:  3,
+			Width:   3,
+			Hazards: []Coord{{X: 2, Y: 1}},
+		},
+		You: me,
+		Game: Game{
+			Ruleset: Ruleset{
+				Settings: Settings{
+					HazardDamagePerTurn: -50,
+				},
+			},
+		},
+	}
+	board := BuildBoard(state)
+	id := board.ids["me"]
+
+	moves := []SnakeMove{{Id: id, Dir: Up}}
+	board.AdvanceBoard(moves)
+
+	if board.Healths[id] != 99 {
+		panic("Snake did not heal!")
+	}
+}
+
+func TestAdvanceBoardHazardStacked(t *testing.T) {
+	//t.Skip()
+	// _ _ _
+	// _ _ x
+	// s s h
+	me := Battlesnake{
+		ID:     "me",
+		Health: 50,
+		Head:   Coord{X: 2, Y: 0},
+		Body:   []Coord{{X: 2, Y: 0}, {X: 1, Y: 0}, {X: 0, Y: 0}},
+	}
+	state := GameState{
+		Turn: 3,
+		Board: Board{
+			Snakes:  []Battlesnake{me},
+			Height:  3,
+			Width:   3,
+			Hazards: []Coord{{X: 2, Y: 1}, {X: 2, Y: 1}},
+		},
+		You: me,
+		Game: Game{
+			Ruleset: Ruleset{
+				Settings: Settings{
+					HazardDamagePerTurn: 25,
+				},
+			},
+		},
+	}
+	board := BuildBoard(state)
+	id := board.ids["me"]
+
+	moves := []SnakeMove{{Id: id, Dir: Up}}
+	board.AdvanceBoard(moves)
+
+	if board.Healths[id] != 0 {
 		panic("Snake did not die!")
 	}
 }
@@ -580,6 +665,7 @@ func TestAdvanceBoardEatFood(t *testing.T) {
 
 func TestAdvanceBoardOutOfBounds(t *testing.T) {
 	//t.Skip()
+	// right side
 	// _ _ _
 	// _ _ _
 	// s s h
@@ -605,6 +691,96 @@ func TestAdvanceBoardOutOfBounds(t *testing.T) {
 	board.AdvanceBoard(moves)
 
 	if board.list[2].IsSnakeSegment() != false && board.list[1].IsSnakeSegment() != false && board.list[0].IsSnakeSegment() != false {
+		panic("Did not remove snake from board!")
+	}
+
+	//t.Skip()
+	// left side
+	// _ _ _
+	// _ _ _
+	// h s s
+	me = Battlesnake{
+		ID:     "me",
+		Health: 100,
+		Head:   Coord{X: 0, Y: 0},
+		Body:   []Coord{{X: 0, Y: 0}, {X: 1, Y: 0}, {X: 2, Y: 0}},
+	}
+	state = GameState{
+		Turn: 4,
+		Board: Board{
+			Snakes: []Battlesnake{me},
+			Height: 3,
+			Width:  3,
+		},
+		You: me,
+	}
+	board = BuildBoard(state)
+	id = board.ids["me"]
+
+	moves = []SnakeMove{{Id: id, Dir: Left}}
+	board.AdvanceBoard(moves)
+
+	if board.list[2].IsSnakeSegment() != false && board.list[1].IsSnakeSegment() != false && board.list[0].IsSnakeSegment() != false {
+		panic("Did not remove snake from board!")
+	}
+
+	//t.Skip()
+	// top side
+	// h _ _
+	// s _ _
+	// s _ _
+	me = Battlesnake{
+		ID:     "me",
+		Health: 100,
+		Head:   Coord{X: 0, Y: 2},
+		Body:   []Coord{{X: 0, Y: 2}, {X: 0, Y: 1}, {X: 0, Y: 0}},
+	}
+	state = GameState{
+		Turn: 4,
+		Board: Board{
+			Snakes: []Battlesnake{me},
+			Height: 3,
+			Width:  3,
+		},
+		You: me,
+	}
+	board = BuildBoard(state)
+	id = board.ids["me"]
+
+	moves = []SnakeMove{{Id: id, Dir: Up}}
+	board.AdvanceBoard(moves)
+
+	if board.list[0].IsSnakeSegment() != false && board.list[3].IsSnakeSegment() != false && board.list[6].IsSnakeSegment() != false {
+		panic("Did not remove snake from board!")
+	}
+
+	//t.Skip()
+	// bottom side
+	// _ _ s
+	// _ _ s
+	// _ _ h
+	me = Battlesnake{
+		ID:     "me",
+		Health: 100,
+		Head:   Coord{X: 2, Y: 0},
+		Body:   []Coord{{X: 2, Y: 0}, {X: 2, Y: 1}, {X: 2, Y: 2}},
+	}
+	state = GameState{
+		Turn: 4,
+		Board: Board{
+			Snakes: []Battlesnake{me},
+			Height: 3,
+			Width:  3,
+		},
+		You: me,
+	}
+	board = BuildBoard(state)
+	id = board.ids["me"]
+
+	moves = []SnakeMove{{Id: id, Dir: Down}}
+	board.AdvanceBoard(moves)
+
+	if board.list[2].IsSnakeSegment() != false && board.list[5].IsSnakeSegment() != false && board.list[8].IsSnakeSegment() != false {
 		panic("Did not remove snake from board!")
 	}
 }
@@ -1127,6 +1303,21 @@ func TestAdvanceBoardCrazyStuff(t *testing.T) {
 	snakeId, ok := board.list[9].GetSnakeId()
 	if board.list[9].IsSnakeSegment() != true || !ok || snakeId != id0 {
 		panic("lost snake id0 neck!")
+	}
+}
+func TestBuildBoardSnakeAte(t *testing.T) {
+	g := []byte("{\"game\":{\"id\":\"a8732cf3-42b6-4012-bbb5-d1cc4e03f397\",\"ruleset\":{\"name\":\"standard\",\"version\":\"cli\",\"settings\":{\"foodSpawnChance\":15,\"minimumFood\":1,\"hazardDamagePerTurn\":14,\"hazardMap\":\"\",\"hazardMapAuthor\":\"\",\"royale\":{\"shrinkEveryNTurns\":25},\"squad\":{\"allowBodyCollisions\":false,\"sharedElimination\":false,\"sharedHealth\":false,\"sharedLength\":false}}},\"map\":\"standard\",\"timeout\":500,\"source\":\"\"},\"turn\":2,\"board\":{\"height\":11,\"width\":11,\"snakes\":[{\"id\":\"45f8bf5b-02ea-4ccc-99f9-3079f5bbb805\",\"name\":\"tiam\",\"latency\":\"0\",\"health\":100,\"body\":[{\"x\":8,\"y\":10},{\"x\":8,\"y\":9},{\"x\":9,\"y\":9},{\"x\":9,\"y\":9}],\"head\":{\"x\":8,\"y\":10},\"length\":4,\"shout\":\"\",\"squad\":\"\",\"customizations\":{\"color\":\"#002080\",\"head\":\"evil\",\"tail\":\"fat-rattle\"}},{\"id\":\"2bd13899-e75e-4d8f-b6fb-fad018d04b7f\",\"name\":\"local\",\"latency\":\"0\",\"health\":98,\"body\":[{\"x\":10,\"y\":0},{\"x\":10,\"y\":1},{\"x\":9,\"y\":1}],\"head\":{\"x\":10,\"y\":0},\"length\":3,\"shout\":\"\",\"squad\":\"\",\"customizations\":{\"color\":\"#002080\",\"head\":\"evil\",\"tail\":\"fat-rattle\"}}],\"food\":[{\"x\":8,\"y\":0},{\"x\":5,\"y\":5},{\"x\":1,\"y\":2}],\"hazards\":[]},\"you\":{\"id\":\"2bd13899-e75e-4d8f-b6fb-fad018d04b7f\",\"name\":\"local\",\"latency\":\"0\",\"health\":98,\"body\":[{\"x\":10,\"y\":0},{\"x\":10,\"y\":1},{\"x\":9,\"y\":1}],\"head\":{\"x\":10,\"y\":0},\"length\":3,\"shout\":\"\",\"squad\":\"\",\"customizations\":{\"color\":\"#002080\",\"head\":\"evil\",\"tail\":\"fat-rattle\"}}}")
+
+	state := GameState{}
+	_ = json.Unmarshal(g, &state)
+
+	b := BuildBoard(state)
+
+	// x: 9, y: 9 = 9 * 11 + 9 = 108
+	ind := pointToIndex(Point{X: 9, Y: 9}, b.width)
+	fmt.Println("is double", b.list[ind].IsDoubleStack())
+	if !b.list[108].IsDoubleStack() {
+		panic("Did not add double stack after eating!")
 	}
 }
 

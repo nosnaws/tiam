@@ -8,14 +8,15 @@ import (
 const MeId = SnakeId(1)
 
 type FastBoard struct {
-	list      []Tile
-	ids       map[string]SnakeId
-	Heads     map[SnakeId]uint16
-	Lengths   map[SnakeId]uint8
-	Healths   map[SnakeId]int8
-	width     uint16
-	height    uint16
-	isWrapped bool
+	list         []Tile
+	ids          map[string]SnakeId
+	Heads        map[SnakeId]uint16
+	Lengths      map[SnakeId]uint8
+	Healths      map[SnakeId]int8
+	width        uint16
+	height       uint16
+	isWrapped    bool
+	hazardDamage int8
 }
 
 type SnakeMove struct {
@@ -31,6 +32,7 @@ type idToNewHead struct {
 func BuildBoard(state GameState) FastBoard {
 	height := uint16(state.Board.Height)
 	width := uint16(state.Board.Width)
+	hazardDamage := int8(state.Game.Ruleset.Settings.HazardDamagePerTurn)
 	listLength := height * width
 
 	ids := make(map[string]SnakeId)
@@ -116,36 +118,45 @@ func BuildBoard(state GameState) FastBoard {
 	}
 
 	return FastBoard{
-		width:     width,
-		height:    height,
-		list:      list,
-		ids:       ids,
-		Lengths:   lengths,
-		Healths:   healths,
-		Heads:     heads,
-		isWrapped: state.Game.Ruleset.Name == "wrapped",
+		width:        width,
+		height:       height,
+		list:         list,
+		ids:          ids,
+		Lengths:      lengths,
+		Healths:      healths,
+		Heads:        heads,
+		isWrapped:    state.Game.Ruleset.Name == "wrapped",
+		hazardDamage: hazardDamage,
 	}
 }
 
 func (b *FastBoard) AdvanceBoard(moves []SnakeMove) {
-	newHeads := make(map[SnakeId]uint16, len(moves))
+	newHeads := make(map[SnakeId]Point, len(moves))
 	for _, m := range moves {
 		headIndex := b.Heads[m.Id]
-		newHeads[m.Id] = indexInDirection(m.Dir, headIndex, b.width, b.height, b.isWrapped)
+		newHeads[m.Id] = pointInDirection(m.Dir, headIndex, b.width, b.height, b.isWrapped)
 	}
 
 	deadSnakes := make(map[SnakeId]struct{}, len(newHeads))
 
 	// do damage food and stuff
-	for id, index := range newHeads {
+	for id, newPoint := range newHeads {
+		newIndex := pointToIndex(newPoint, b.width)
+
 		// head to head with larger or equal snake
-		for oId, oIndex := range newHeads {
-			if oIndex == index && oId != id && b.Lengths[oId] >= b.Lengths[id] {
+		for oId, oPoint := range newHeads {
+			oIndex := pointToIndex(oPoint, b.width)
+			if oIndex == newIndex && oId != id && b.Lengths[oId] >= b.Lengths[id] {
 				deadSnakes[id] = struct{}{}
 			}
 		}
 
-		moveTile := b.list[index]
+		if b.isOffBoard(newPoint) {
+			deadSnakes[id] = struct{}{}
+			continue
+		}
+
+		moveTile := b.list[newIndex]
 
 		// reduce health
 		b.Healths[id] -= 1
@@ -157,22 +168,23 @@ func (b *FastBoard) AdvanceBoard(moves []SnakeMove) {
 
 		if moveTile.IsHazard() {
 			// TODO: handle other types of hazard damage
-			b.Healths[id] -= 100
+			b.Healths[id] -= b.hazardDamage
 		}
 
 		// snake collision
 		if moveTile.IsSnakeSegment() {
 			snakeTailIndex := b.list[b.Heads[moveTile.id]].GetIdx()
-			isNonTailSegment := index != snakeTailIndex
-			didSnakeEat := b.list[newHeads[moveTile.id]].IsFood()
+			isNonTailSegment := newIndex != snakeTailIndex
+			didSnakeEat := false
+
+			snakeNewHead := newHeads[moveTile.id]
+			if !b.isOffBoard(snakeNewHead) {
+				didSnakeEat = b.list[pointToIndex(snakeNewHead, b.width)].IsFood()
+			}
 
 			if isNonTailSegment || didSnakeEat {
 				deadSnakes[id] = struct{}{}
 			}
-		}
-
-		if b.isOffBoard(indexToPoint(index, b.width)) {
-			deadSnakes[id] = struct{}{}
 		}
 
 		// check for out of health
@@ -187,14 +199,16 @@ func (b *FastBoard) AdvanceBoard(moves []SnakeMove) {
 	}
 
 	// move tails
-	for id, index := range newHeads {
+	for id, newPoint := range newHeads {
+		newIndex := pointToIndex(newPoint, b.width)
+
 		if b.Lengths[id] < 1 {
 			continue
 		}
 
 		oldHeadIndex := b.Heads[id]
 		tailIndex := b.list[oldHeadIndex].GetIdx()
-		didSnakeEat := b.isTileFood(index)
+		didSnakeEat := b.isTileFood(newIndex)
 
 		oldHeadTile := b.list[oldHeadIndex]
 		tailTile := b.list[tailIndex]
@@ -214,7 +228,9 @@ func (b *FastBoard) AdvanceBoard(moves []SnakeMove) {
 	}
 
 	// move heads
-	for id, index := range newHeads {
+	for id, newPoint := range newHeads {
+		newIndex := pointToIndex(newPoint, b.width)
+
 		if b.Healths[id] < 1 {
 			continue
 		}
@@ -223,18 +239,18 @@ func (b *FastBoard) AdvanceBoard(moves []SnakeMove) {
 		tailIndex := b.list[oldHeadIndex].GetIdx()
 
 		if b.list[oldHeadIndex].IsTripleStack() {
-			b.setTileSnakeHead(index, id, oldHeadIndex)
-			b.setTileSnakeDoubleStack(oldHeadIndex, id, index)
+			b.setTileSnakeHead(newIndex, id, oldHeadIndex)
+			b.setTileSnakeDoubleStack(oldHeadIndex, id, newIndex)
 		} else if b.list[tailIndex].IsDoubleStack() {
-			b.setTileSnakeHead(index, id, tailIndex)
-			b.setTileSnakeBodyPart(oldHeadIndex, id, index)
+			b.setTileSnakeHead(newIndex, id, tailIndex)
+			b.setTileSnakeBodyPart(oldHeadIndex, id, newIndex)
 			b.setTileSnakeBodyPart(tailIndex, id, oldHeadIndex)
 		} else {
-			b.setTileSnakeHead(index, id, tailIndex)
+			b.setTileSnakeHead(newIndex, id, tailIndex)
 			//  update neck with new head
-			b.setTileSnakeBodyPart(oldHeadIndex, id, index)
+			b.setTileSnakeBodyPart(oldHeadIndex, id, newIndex)
 		}
-		b.Heads[id] = index
+		b.Heads[id] = newIndex
 	}
 }
 

@@ -7,8 +7,7 @@ import (
 	"sort"
 	"time"
 
-	"github.com/BattlesnakeOfficial/rules"
-	"github.com/nosnaws/tiam/game"
+	"github.com/newrelic/go-agent/v3/newrelic"
 
 	fastGame "github.com/nosnaws/tiam/game"
 )
@@ -37,22 +36,14 @@ type SnakeScore struct {
 	heuristic float64
 }
 
-//func addAttributes(txn *newrelic.Transaction, root *Node, selected rules.SnakeMove) {
-//if txn != nil {
-//txn.AddAttribute("totalPlays", root.Plays)
-//txn.AddAttribute("selectedMove", selected.Move)
-//}
-//for _, m := range root.PossibleMoves[root.YouId] {
-//scoreKey := fmt.Sprintf("moves.scores.%s", m.Move)
-//playsKey := fmt.Sprintf("moves.plays.%s", m.Move)
-//if txn != nil {
-//txn.AddAttribute(scoreKey, root.Payoffs[root.YouId].Scores[m.Move])
-//txn.AddAttribute(playsKey, root.Payoffs[root.YouId].Plays[m.Move])
-//}
-//}
-//}
+func addAttributes(txn *newrelic.Transaction, root *Node, selected fastGame.SnakeMove) {
+	if txn != nil {
+		txn.AddAttribute("totalPlays", root.plays)
+		txn.AddAttribute("selectedMove", selected.Dir)
+	}
+}
 
-func MCTS(board *fastGame.FastBoard) fastGame.SnakeMove {
+func MCTS(board *fastGame.FastBoard, txn *newrelic.Transaction) fastGame.SnakeMove {
 	fakeMoveSet := make(map[fastGame.SnakeId]fastGame.SnakeMove)
 	root := createNode(fakeMoveSet, board)
 	root.children = createChildren(root)
@@ -78,18 +69,11 @@ loop:
 		}
 	}
 
-	log.Println("# ROOT #")
-	printNode(root)
-	log.Println(root.possibleMoves)
-	log.Println("# Children #")
-	for _, child := range root.children {
-		printNode(child)
-	}
-
 	bestMove := selectFinalMove(root)
 	log.Println("# Selected #")
 	log.Println(bestMove)
 	log.Println("Total plays: ", root.plays)
+	addAttributes(txn, root, bestMove)
 	return bestMove
 }
 
@@ -105,23 +89,16 @@ func printNode(node *Node) {
 	log.Println("#############")
 	log.Println("Depth", node.depth)
 	log.Println("payoffs", node.payoffs)
-	//log.Println("Plays", node.payoffs[fastGame.MeId].plays)
-	//log.Println("Scores", node.payoffs[fastGame.MeId].scores)
-	//log.Println("Heuristics", node.payoffs[fastGame.MeId].heuristic)
 	log.Println("#############")
 }
 
 func expandNode(node *Node) *Node {
-	//log.Println("Exanding node with depth", node.depth)
 	if node.board.IsGameOver() {
-		//log.Println("Game is over, returning node")
 		return node
 	}
 
 	if len(node.children) == 0 {
-		//log.Println("Creating children")
 		children := createChildren(node)
-		//log.Println("Created children", len(children))
 		if len(children) == 0 {
 			node.board.Print()
 		}
@@ -129,7 +106,6 @@ func expandNode(node *Node) *Node {
 		node.children = children
 	}
 
-	//log.Println("Getting random unexplored child")
 	return getRandomUnexploredChild(node)
 }
 
@@ -198,23 +174,6 @@ func backpropagate(node *Node, scores map[fastGame.SnakeId]SnakeScore) {
 
 	}
 
-	//for _, sc := range scores {
-	//fmt.Println(sc)
-	//node.payoffs[sc.id].plays[sc.move] += 1
-	//node.payoffs[sc.id].scores[sc.move] += sc.value
-
-	//h := node.payoffs[sc.id].heuristic[sc.move]
-	//node.payoffs[sc.id].heuristic[sc.move] = math.Max(h, sc.heuristic)
-
-	//fmt.Println("creating new score for move", node.moveSet[sc.id].Dir)
-	//pastMovesWithScore = append(pastMovesWithScore, SnakeScore{
-	//id:        sc.id,
-	//value:     sc.value,
-	//move:      node.moveSet[sc.id].Dir,
-	//heuristic: sc.heuristic,
-	//})
-	//}
-
 	backpropagate(node.parent, pastMovesWithScore)
 }
 
@@ -243,15 +202,6 @@ func getRandomUnexploredChild(node *Node) *Node {
 	return Shuffle(unexplored)[0]
 }
 
-func getMove(id string, moves []rules.SnakeMove) *rules.SnakeMove {
-	for _, move := range moves {
-		if move.ID == id {
-			return &move
-		}
-	}
-	return nil
-}
-
 func createChildren(node *Node) []*Node {
 	productOfMoves := fastGame.GetCartesianProductOfMoves(*node.board)
 
@@ -276,8 +226,8 @@ func createChildren(node *Node) []*Node {
 }
 
 func createNode(moveSet map[fastGame.SnakeId]fastGame.SnakeMove, board *fastGame.FastBoard) *Node {
-	possibleMoves := make(map[game.SnakeId][]fastGame.SnakeMove)
-	payoffs := make(map[game.SnakeId]Payoff)
+	possibleMoves := make(map[fastGame.SnakeId][]fastGame.SnakeMove)
+	payoffs := make(map[fastGame.SnakeId]Payoff)
 	for id, length := range board.Lengths {
 		isAlive := length > 0
 		if !isAlive {
