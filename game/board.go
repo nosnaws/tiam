@@ -311,7 +311,7 @@ func (b *FastBoard) GetMovesForSnake(id SnakeId) []SnakeMove {
 		}
 
 		dirIndex := pointToIndex(dirPoint, b.width)
-		if b.isTileHazard(dirIndex) {
+		if b.isTileHazard(dirIndex) && b.hazardDamage == 100 {
 			continue
 		}
 
