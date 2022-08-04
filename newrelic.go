@@ -31,6 +31,7 @@ func getBaseAttributes(txn *newrelic.Transaction, state fastGame.GameState) {
 	txn.AddAttribute("snakeGameId", state.Game.ID)
 	txn.AddAttribute("snakeRules", state.Game.Ruleset.Name)
 	txn.AddAttribute("snakeTurn", state.Turn)
+	txn.AddAttribute("snakeMap", state.Game.Map)
 
 	txn.AddAttribute("snakeName", state.You.Name)
 	txn.AddAttribute("snakeId", state.You.ID)
