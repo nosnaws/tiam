@@ -44,6 +44,8 @@ func addAttributes(txn *newrelic.Transaction, root *Node, selected fastGame.Snak
 }
 
 func MCTS(board *fastGame.FastBoard, txn *newrelic.Transaction) fastGame.SnakeMove {
+	segment := txn.StartSegment("MCTS")
+	defer segment.End()
 	fakeMoveSet := make(map[fastGame.SnakeId]fastGame.SnakeMove)
 	root := createNode(fakeMoveSet, board)
 	root.children = createChildren(root)
@@ -59,17 +61,33 @@ loop:
 		case <-timeout:
 			break loop
 		default:
+			s := txn.StartSegment("select")
 			node := selectNode(root)
-			child := expandNode(node)
+			s.End()
 
+			s = txn.StartSegment("expand")
+			child := expandNode(node)
+			s.End()
+
+			s = txn.StartSegment("simulate")
 			score := simulateNode(child)
+			s.End()
 			child.plays += 1
 
+			s = txn.StartSegment("backpropagate")
 			backpropagate(node, score)
+			s.End()
 		}
 	}
 
 	bestMove := selectFinalMove(root)
+	printNode(root)
+	for _, child := range root.children {
+		printNode(child)
+		//for _, c := range child.children {
+		//printNode(c)
+		//}
+	}
 	log.Println("# Selected #")
 	log.Println(bestMove)
 	log.Println("Total plays: ", root.plays)
@@ -87,9 +105,15 @@ func selectNode(node *Node) *Node {
 
 func printNode(node *Node) {
 	log.Println("#############")
+	node.board.Print()
 	log.Println("Depth", node.depth)
-	log.Println("payoffs", node.payoffs)
-	log.Println("#############")
+	log.Println("Total plays", node.plays)
+	for id, payoff := range node.payoffs {
+		log.Println("Player", id)
+		log.Println("Plays", payoff.plays)
+		log.Println("Scores", payoff.scores)
+		log.Println("Heuristics", payoff.heuristic)
+	}
 }
 
 func expandNode(node *Node) *Node {
