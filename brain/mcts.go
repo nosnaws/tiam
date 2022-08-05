@@ -122,12 +122,7 @@ func expandNode(node *Node) *Node {
 	}
 
 	if len(node.children) == 0 {
-		children := createChildren(node)
-		if len(children) == 0 {
-			node.board.Print()
-		}
-
-		node.children = children
+		node.children = createChildren(node)
 	}
 
 	return getRandomUnexploredChild(node)
@@ -136,7 +131,12 @@ func expandNode(node *Node) *Node {
 func simulateNode(node *Node) map[fastGame.SnakeId]SnakeScore {
 
 	ns := node.board.Clone()
-	ns.RandomRollout()
+
+	// If still in the game, playout.
+	// If not, give all other players a win
+	if ns.Lengths[fastGame.MeId] > 0 {
+		ns.RandomRollout()
+	}
 
 	nodeHeuristic := calculateNodeHeuristic(node, fastGame.MeId)
 
@@ -171,7 +171,6 @@ func backpropagate(node *Node, scores map[fastGame.SnakeId]SnakeScore) {
 	pastMovesWithScore := make(map[fastGame.SnakeId]SnakeScore)
 	node.plays += 1
 	for id := range node.board.Lengths {
-
 		if _, ok := node.payoffs[id]; ok {
 			score := scores[id]
 			node.payoffs[id].plays[score.move] += 1
@@ -305,8 +304,8 @@ func selectFinalMove(node *Node) fastGame.SnakeMove {
 
 func bestUTC(node *Node) *Node {
 	var moveSet []fastGame.SnakeMove
-	for id, h := range node.board.Healths {
-		if h > 0 {
+	for id, l := range node.board.Lengths {
+		if l > 0 {
 			bestMove := bestMoveUTC(node, id)
 			moveSet = append(moveSet, bestMove)
 		}
@@ -388,6 +387,7 @@ func calculateNodeHeuristic(node *Node, id fastGame.SnakeId) float64 {
 	}
 	snakeScore := 10 / (len(otherSnakes) + 1)
 	healthScore := float64(health / 100)
+	lengthScore := 1 * node.board.Lengths[fastGame.MeId]
 
-	return float64(total) + float64(snakeScore) + healthScore
+	return float64(total) + float64(snakeScore) + healthScore + float64(lengthScore)
 }
