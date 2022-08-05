@@ -15,8 +15,8 @@ jobs:
           API_KEY: ${{ secrets.NEW_RELIC_API_KEY }}
           GH_USER: ${{ github.event.pusher.name }}
           COMMIT_MSG: ${{ github.event.head_commit.message }}
-          TIME: ${{ github.event.head_commit.timestamp }}
         run: |
+          TIME=$(date -u +"%Y-%m-%dT%H:%M:%SZ")
           curl -X POST "https://api.newrelic.com/v2/applications/1357353372/deployments.json" \
                -H "Api-Key:$API_KEY" \
                -i \
