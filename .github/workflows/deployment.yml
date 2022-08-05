@@ -22,12 +22,12 @@ jobs:
                -i \
                -H "Content-Type: application/json" \
                -d \
-          '{
-            "deployment": {
-              "revision": "REVISION",
-              "changelog": $COMMIT_MSG,
-              "description": $COMMIT_MSG,
-              "user": $GH_USER,
-              "timestamp": $TIME
+          "{
+            \"deployment\": {
+              \"revision\": \"REVISION\",
+              \"changelog\": $COMMIT_MSG,
+              \"description\": $COMMIT_MSG,
+              \"user\": $GH_USER,
+              \"timestamp\": $TIME
             }
-          }'
+          }"
