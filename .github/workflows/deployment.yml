@@ -25,9 +25,9 @@ jobs:
           "{
             \"deployment\": {
               \"revision\": \"REVISION\",
-              \"changelog\": $COMMIT_MSG,
-              \"description\": $COMMIT_MSG,
-              \"user\": $GH_USER,
-              \"timestamp\": $TIME
+              \"changelog\": \"$COMMIT_MSG\",
+              \"description\": \"$COMMIT_MSG\",
+              \"user\": \"$GH_USER\",
+              \"timestamp\": \"$TIME\"
             }
           }"
