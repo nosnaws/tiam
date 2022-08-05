@@ -7,6 +7,8 @@ import (
 
 const MeId = SnakeId(1)
 
+var allMoves = [4]Move{Up, Left, Right, Down}
+
 type FastBoard struct {
 	list         []Tile
 	ids          map[string]SnakeId
@@ -130,76 +132,91 @@ func BuildBoard(state GameState) FastBoard {
 	}
 }
 
-func (b *FastBoard) AdvanceBoard(moves []SnakeMove) {
-	newHeads := make(map[SnakeId]Point, len(moves))
-	for _, m := range moves {
-		headIndex := b.Heads[m.Id]
-		newHeads[m.Id] = pointInDirection(m.Dir, headIndex, b.width, b.height, b.isWrapped)
-	}
-
-	deadSnakes := make(map[SnakeId]struct{}, len(newHeads))
+func (b *FastBoard) AdvanceBoard(moves map[SnakeId]Move) {
+	deadSnakes := make([]SnakeId, len(b.Heads))
 
 	// do damage food and stuff
-	for id, newPoint := range newHeads {
+	for id, dir := range moves {
+		if dir == "" {
+			continue
+		}
+
+		newPoint := pointInDirection(dir, b.Heads[id], b.width, b.height, b.isWrapped)
 		newIndex := pointToIndex(newPoint, b.width)
+		isDead := false
 
 		// head to head with larger or equal snake
-		for oId, oPoint := range newHeads {
+		for oId, oDir := range moves {
+			oPoint := pointInDirection(oDir, b.Heads[oId], b.width, b.height, b.isWrapped)
 			oIndex := pointToIndex(oPoint, b.width)
+
 			if oIndex == newIndex && oId != id && b.Lengths[oId] >= b.Lengths[id] {
-				deadSnakes[id] = struct{}{}
+				isDead = true
 			}
 		}
 
 		if b.isOffBoard(newPoint) {
-			deadSnakes[id] = struct{}{}
-			continue
+			isDead = true
 		}
 
-		moveTile := b.list[newIndex]
+		if !isDead {
+			moveTile := b.list[newIndex]
 
-		// reduce health
-		b.Healths[id] -= 1
+			// reduce health
+			b.Healths[id] -= 1
 
-		// feed snakes
-		if moveTile.IsFood() {
-			b.Healths[id] = 100
-		}
-
-		if moveTile.IsHazard() {
-			// TODO: handle other types of hazard damage
-			b.Healths[id] -= b.hazardDamage
-		}
-
-		// snake collision
-		if moveTile.IsSnakeSegment() {
-			snakeTailIndex := b.list[b.Heads[moveTile.id]].GetIdx()
-			isNonTailSegment := newIndex != snakeTailIndex
-			didSnakeEat := false
-
-			snakeNewHead := newHeads[moveTile.id]
-			if !b.isOffBoard(snakeNewHead) {
-				didSnakeEat = b.list[pointToIndex(snakeNewHead, b.width)].IsFood()
+			// feed snakes
+			if moveTile.IsFood() {
+				b.Healths[id] = 100
 			}
 
-			if isNonTailSegment || didSnakeEat {
-				deadSnakes[id] = struct{}{}
+			if moveTile.IsHazard() {
+				// TODO: handle stacked hazards
+				b.Healths[id] -= b.hazardDamage
+			}
+
+			// snake collision
+			if moveTile.IsSnakeSegment() {
+				snakeTailIndex := b.list[b.Heads[moveTile.id]].GetIdx()
+				isNonTailSegment := newIndex != snakeTailIndex
+				didSnakeEat := false
+
+				snakeDir := moves[moveTile.id]
+				snakeNewHead := pointInDirection(snakeDir, b.Heads[moveTile.id], b.width, b.height, b.isWrapped)
+				if !b.isOffBoard(snakeNewHead) {
+					didSnakeEat = b.list[pointToIndex(snakeNewHead, b.width)].IsFood()
+				}
+
+				if isNonTailSegment || didSnakeEat {
+					isDead = true
+				}
+			}
+
+			// check for out of health
+			if b.Healths[id] <= 0 {
+				isDead = true
 			}
 		}
 
-		// check for out of health
-		if b.Healths[id] <= 0 {
-			deadSnakes[id] = struct{}{}
+		if isDead {
+			deadSnakes = append(deadSnakes, id)
 		}
 	}
 
 	//  kill snakes
-	for id := range deadSnakes {
-		b.kill(id)
+	for _, id := range deadSnakes {
+		if id != 0 {
+			b.kill(id)
+		}
 	}
 
 	// move tails
-	for id, newPoint := range newHeads {
+	for id, dir := range moves {
+		if dir == "" {
+			continue
+		}
+
+		newPoint := pointInDirection(dir, b.Heads[id], b.width, b.height, b.isWrapped)
 		newIndex := pointToIndex(newPoint, b.width)
 
 		if b.Lengths[id] < 1 {
@@ -228,7 +245,12 @@ func (b *FastBoard) AdvanceBoard(moves []SnakeMove) {
 	}
 
 	// move heads
-	for id, newPoint := range newHeads {
+	for id, dir := range moves {
+		if dir == "" {
+			continue
+		}
+
+		newPoint := pointInDirection(dir, b.Heads[id], b.width, b.height, b.isWrapped)
 		newIndex := pointToIndex(newPoint, b.width)
 
 		if b.Healths[id] < 1 {
@@ -280,30 +302,31 @@ func (b *FastBoard) kill(id SnakeId) {
 }
 
 func (b *FastBoard) RandomRollout() {
+	moves := make(map[SnakeId]Move, len(b.Lengths))
 	for !b.IsGameOver() {
-		var moves []SnakeMove
+		//moves := make([]SnakeMove, 0, len(b.Lengths))
+
 		for id, l := range b.Lengths {
 			if l == 0 {
+				moves[id] = ""
 				continue
 			}
 
 			sMoves := b.GetMovesForSnake(id)
-			if len(sMoves) < 1 {
-				sMoves = []SnakeMove{{Id: id, Dir: Left}}
-			}
 			randomMove := sMoves[rand.Intn(len(sMoves))]
-			moves = append(moves, randomMove)
+			//moves = append(moves, randomMove)
+			moves[id] = randomMove.Dir
 		}
 		b.AdvanceBoard(moves)
 	}
 }
 
 func (b *FastBoard) GetMovesForSnake(id SnakeId) []SnakeMove {
-	moves := [4]Move{Up, Left, Right, Down}
-	var possibleMoves []SnakeMove
+	//var possibleMoves []SnakeMove
+	possibleMoves := make([]SnakeMove, 0, 4)
 	snakeHeadIndex := b.Heads[id]
 
-	for _, dir := range moves {
+	for _, dir := range allMoves {
 		dirPoint := b.pointInDirection(dir, snakeHeadIndex)
 		isOutOfBounds := b.isOffBoard(dirPoint)
 		if isOutOfBounds {
@@ -311,7 +334,7 @@ func (b *FastBoard) GetMovesForSnake(id SnakeId) []SnakeMove {
 		}
 
 		dirIndex := pointToIndex(dirPoint, b.width)
-		if b.isTileHazard(dirIndex) && b.hazardDamage == 100 {
+		if b.isTileHazard(dirIndex) && b.hazardDamage >= 100 {
 			continue
 		}
 
