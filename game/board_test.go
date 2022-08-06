@@ -93,50 +93,6 @@ func TestRandomRolloutWrapped(t *testing.T) {
 	}
 }
 
-func TestHeadToHead(t *testing.T) {
-	//t.Skip()
-	// _ _ _ _ _
-	// _ s s s h
-	// s s s e f
-	// _ _ _ _ _
-	// _ _ _ _ _
-	me := Battlesnake{
-		ID:     "me",
-		Health: 100,
-		Body:   []Coord{{X: 4, Y: 3}, {X: 3, Y: 3}, {X: 2, Y: 3}, {X: 1, Y: 3}},
-	}
-	two := Battlesnake{
-		ID:     "two",
-		Health: 100,
-		Body:   []Coord{{X: 3, Y: 2}, {X: 2, Y: 2}, {X: 1, Y: 2}, {X: 0, Y: 2}},
-	}
-	state := GameState{
-		Board: Board{
-			Snakes: []Battlesnake{me, two},
-			Height: 5,
-			Width:  5,
-			Food:   []Coord{{X: 4, Y: 2}},
-		},
-		You: me,
-	}
-	board := BuildBoard(state)
-	id := board.ids["me"]
-	twoId := board.ids["two"]
-
-	moves := make(map[SnakeId]Move)
-	moves[id] = Down
-	moves[twoId] = Right
-	board.Print()
-	board.AdvanceBoard(moves)
-
-	fmt.Println("HERE")
-	board.Print()
-	if !board.IsGameOver() {
-		board.Print()
-		panic("game did not end!")
-	}
-}
-
 func TestRandomSnakeCollsionWrapped(t *testing.T) {
 	//t.Skip()
 	// s s _
@@ -172,9 +128,7 @@ func TestRandomSnakeCollsionWrapped(t *testing.T) {
 	id := board.ids["me"]
 	twoId := board.ids["two"]
 
-	moves := make(map[SnakeId]Move)
-	moves[id] = Right
-	moves[twoId] = Down
+	moves := []SnakeMove{{Id: id, Dir: Right}, {Id: twoId, Dir: Down}}
 	board.AdvanceBoard(moves)
 
 	if board.Healths[id] > 1 {
@@ -210,7 +164,6 @@ func TestGetSnakeMoves(t *testing.T) {
 
 	if len(moves) != 1 {
 		fmt.Println(moves)
-		board.Print()
 		panic("Should only be able to move up!")
 	}
 
@@ -283,11 +236,7 @@ func TestGetSnakeMoves(t *testing.T) {
 	id = board.ids["me"]
 	enemy := board.ids["two"]
 
-	moves2 := make(map[SnakeId]Move)
-	moves2[id] = Right
-	moves2[enemy] = Left
-
-	board.AdvanceBoard(moves2)
+	board.AdvanceBoard([]SnakeMove{{Id: id, Dir: Right}, {Id: enemy, Dir: Left}})
 	fmt.Println(board)
 	moves = board.GetMovesForSnake(id)
 
@@ -476,8 +425,7 @@ func TestAdvanceBoardMoving(t *testing.T) {
 		panic("did not start with triple stack")
 	}
 
-	moves := make(map[SnakeId]Move)
-	moves[id] = Up
+	moves := []SnakeMove{{Id: id, Dir: Up}}
 	board.AdvanceBoard(moves)
 	board.Print()
 
@@ -491,8 +439,7 @@ func TestAdvanceBoardMoving(t *testing.T) {
 		panic("did not set double stack!")
 	}
 
-	moves = make(map[SnakeId]Move)
-	moves[id] = Left
+	moves = []SnakeMove{{Id: id, Dir: Left}}
 	board.AdvanceBoard(moves)
 	board.Print()
 
@@ -504,8 +451,7 @@ func TestAdvanceBoardMoving(t *testing.T) {
 		panic("should not be stacked!")
 	}
 
-	moves = make(map[SnakeId]Move)
-	moves[id] = Down
+	moves = []SnakeMove{{Id: id, Dir: Down}}
 	board.AdvanceBoard(moves)
 	board.Print()
 
@@ -517,8 +463,7 @@ func TestAdvanceBoardMoving(t *testing.T) {
 		panic("Did not move tail!")
 	}
 
-	moves = make(map[SnakeId]Move)
-	moves[id] = Right
+	moves = []SnakeMove{{Id: id, Dir: Right}}
 	board.AdvanceBoard(moves)
 	board.Print()
 
@@ -555,8 +500,7 @@ func TestAdvanceBoardTurnDamage(t *testing.T) {
 	board := BuildBoard(state)
 	id := board.ids["me"]
 
-	moves := make(map[SnakeId]Move)
-	moves[id] = Up
+	moves := []SnakeMove{{Id: id, Dir: Up}}
 	board.AdvanceBoard(moves)
 
 	if board.Healths[id] != 99 {
@@ -596,8 +540,7 @@ func TestAdvanceBoardHazardDamage(t *testing.T) {
 	board := BuildBoard(state)
 	id := board.ids["me"]
 
-	moves := make(map[SnakeId]Move)
-	moves[id] = Up
+	moves := []SnakeMove{{Id: id, Dir: Up}}
 	board.AdvanceBoard(moves)
 
 	if board.Healths[id] > 0 {
@@ -636,8 +579,7 @@ func TestAdvanceBoardHazardHealing(t *testing.T) {
 	board := BuildBoard(state)
 	id := board.ids["me"]
 
-	moves := make(map[SnakeId]Move)
-	moves[id] = Up
+	moves := []SnakeMove{{Id: id, Dir: Up}}
 	board.AdvanceBoard(moves)
 
 	if board.Healths[id] != 99 {
@@ -676,8 +618,7 @@ func TestAdvanceBoardHazardStacked(t *testing.T) {
 	board := BuildBoard(state)
 	id := board.ids["me"]
 
-	moves := make(map[SnakeId]Move)
-	moves[id] = Up
+	moves := []SnakeMove{{Id: id, Dir: Up}}
 	board.AdvanceBoard(moves)
 
 	if board.Healths[id] != 0 {
@@ -709,8 +650,7 @@ func TestAdvanceBoardEatFood(t *testing.T) {
 	board := BuildBoard(state)
 	id := board.ids["me"]
 
-	moves := make(map[SnakeId]Move)
-	moves[id] = Up
+	moves := []SnakeMove{{Id: id, Dir: Up}}
 	board.Print()
 	board.AdvanceBoard(moves)
 	board.Print()
@@ -747,8 +687,7 @@ func TestAdvanceBoardOutOfBounds(t *testing.T) {
 	board := BuildBoard(state)
 	id := board.ids["me"]
 
-	moves := make(map[SnakeId]Move)
-	moves[id] = Right
+	moves := []SnakeMove{{Id: id, Dir: Right}}
 	board.AdvanceBoard(moves)
 
 	if board.list[2].IsSnakeSegment() != false && board.list[1].IsSnakeSegment() != false && board.list[0].IsSnakeSegment() != false {
@@ -778,8 +717,7 @@ func TestAdvanceBoardOutOfBounds(t *testing.T) {
 	board = BuildBoard(state)
 	id = board.ids["me"]
 
-	moves = make(map[SnakeId]Move)
-	moves[id] = Left
+	moves = []SnakeMove{{Id: id, Dir: Left}}
 	board.AdvanceBoard(moves)
 
 	if board.list[2].IsSnakeSegment() != false && board.list[1].IsSnakeSegment() != false && board.list[0].IsSnakeSegment() != false {
@@ -809,8 +747,7 @@ func TestAdvanceBoardOutOfBounds(t *testing.T) {
 	board = BuildBoard(state)
 	id = board.ids["me"]
 
-	moves = make(map[SnakeId]Move)
-	moves[id] = Up
+	moves = []SnakeMove{{Id: id, Dir: Up}}
 	board.AdvanceBoard(moves)
 
 	if board.list[0].IsSnakeSegment() != false && board.list[3].IsSnakeSegment() != false && board.list[6].IsSnakeSegment() != false {
@@ -840,8 +777,7 @@ func TestAdvanceBoardOutOfBounds(t *testing.T) {
 	board = BuildBoard(state)
 	id = board.ids["me"]
 
-	moves = make(map[SnakeId]Move)
-	moves[id] = Down
+	moves = []SnakeMove{{Id: id, Dir: Down}}
 	board.AdvanceBoard(moves)
 
 	if board.list[2].IsSnakeSegment() != false && board.list[5].IsSnakeSegment() != false && board.list[8].IsSnakeSegment() != false {
@@ -878,9 +814,7 @@ func TestAdvanceBoardHeadCollision(t *testing.T) {
 	id := board.ids["me"]
 	enemyId := board.ids["enemy"]
 
-	moves := make(map[SnakeId]Move)
-	moves[id] = Up
-	moves[enemyId] = Down
+	moves := []SnakeMove{{Id: id, Dir: Up}, {Id: enemyId, Dir: Down}}
 	board.AdvanceBoard(moves)
 
 	if board.Healths[id] != 0 {
@@ -921,9 +855,7 @@ func TestAdvanceBoardSnakeCollision(t *testing.T) {
 	id := board.ids["me"]
 	enemyId := board.ids["enemy"]
 
-	moves := make(map[SnakeId]Move)
-	moves[id] = Up
-	moves[enemyId] = Down
+	moves := []SnakeMove{{Id: id, Dir: Up}, {Id: enemyId, Dir: Down}}
 	board.AdvanceBoard(moves)
 
 	if board.Healths[enemyId] != 0 {
@@ -959,8 +891,7 @@ func TestAdvanceBoardSelfCollision(t *testing.T) {
 	board := BuildBoard(state)
 	id := board.ids["me"]
 
-	moves := make(map[SnakeId]Move)
-	moves[id] = Left
+	moves := []SnakeMove{{Id: id, Dir: Left}}
 	board.AdvanceBoard(moves)
 
 	if board.Healths[id] != 0 {
@@ -991,8 +922,7 @@ func TestAdvanceBoardFollowTail(t *testing.T) {
 	board := BuildBoard(state)
 	id := board.ids["me"]
 
-	moves := make(map[SnakeId]Move)
-	moves[id] = Up
+	moves := []SnakeMove{{Id: id, Dir: Up}}
 	board.AdvanceBoard(moves)
 
 	if board.Healths[id] < 1 {
@@ -1030,9 +960,7 @@ func TestAdvanceBoardFollowTail(t *testing.T) {
 	id = board.ids["me"]
 	enemyId := board.ids["enemy"]
 
-	moves = make(map[SnakeId]Move)
-	moves[id] = Up
-	moves[enemyId] = Left
+	moves = []SnakeMove{{Id: id, Dir: Up}, {Id: enemyId, Dir: Left}}
 	fmt.Println("advancing board")
 	board.AdvanceBoard(moves)
 	fmt.Println("board advanced")
@@ -1074,9 +1002,7 @@ func TestAdvanceBoardFollowTail(t *testing.T) {
 	id = board.ids["me"]
 	enemyId = board.ids["enemy"]
 
-	moves = make(map[SnakeId]Move)
-	moves[id] = Up
-	moves[enemyId] = Left
+	moves = []SnakeMove{{Id: id, Dir: Up}, {Id: enemyId, Dir: Left}}
 	fmt.Println("advancing board")
 	board.AdvanceBoard(moves)
 	fmt.Println("board advanced")
@@ -1113,8 +1039,7 @@ func TestAdvanceBoardMoveOnNeck(t *testing.T) {
 	board := BuildBoard(state)
 	id := board.ids["me"]
 
-	moves := make(map[SnakeId]Move)
-	moves[id] = Down
+	moves := []SnakeMove{{Id: id, Dir: Down}}
 	board.AdvanceBoard(moves)
 
 	if board.Healths[id] != 0 {
@@ -1149,8 +1074,7 @@ func TestAdvanceBoardWrapped(t *testing.T) {
 	board := BuildBoard(state)
 	id := board.ids["me"]
 
-	moves := make(map[SnakeId]Move)
-	moves[id] = Right
+	moves := []SnakeMove{{Id: id, Dir: Right}}
 	board.AdvanceBoard(moves)
 
 	if board.Healths[id] != 99 {
@@ -1186,8 +1110,7 @@ func TestAdvanceBoardWrapped(t *testing.T) {
 	board = BuildBoard(state)
 	id = board.ids["me"]
 
-	moves = make(map[SnakeId]Move)
-	moves[id] = Up
+	moves = []SnakeMove{{Id: id, Dir: Up}}
 	board.AdvanceBoard(moves)
 
 	if board.Healths[id] != 99 {
@@ -1223,8 +1146,7 @@ func TestAdvanceBoardWrapped(t *testing.T) {
 	board = BuildBoard(state)
 	id = board.ids["me"]
 
-	moves = make(map[SnakeId]Move)
-	moves[id] = Down
+	moves = []SnakeMove{{Id: id, Dir: Down}}
 	board.AdvanceBoard(moves)
 
 	if board.Healths[id] != 99 {
@@ -1260,8 +1182,7 @@ func TestAdvanceBoardWrapped(t *testing.T) {
 	board = BuildBoard(state)
 	id = board.ids["me"]
 
-	moves = make(map[SnakeId]Move)
-	moves[id] = Right
+	moves = []SnakeMove{{Id: id, Dir: Right}}
 	board.AdvanceBoard(moves)
 
 	if board.Healths[id] != 99 {
@@ -1368,11 +1289,7 @@ func TestAdvanceBoardCrazyStuff(t *testing.T) {
 	id2 := board.ids["2"]
 	id3 := board.ids["3"]
 
-	moves := make(map[SnakeId]Move)
-	moves[id0] = Up
-	moves[id1] = Right
-	moves[id2] = Left
-	moves[id3] = Up
+	moves := []SnakeMove{{Id: id0, Dir: Up}, {Id: id1, Dir: Right}, {Id: id2, Dir: Left}, {Id: id3, Dir: Up}}
 	board.AdvanceBoard(moves)
 
 	if board.Healths[id1] > 0 {

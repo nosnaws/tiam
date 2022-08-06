@@ -215,16 +215,14 @@ func isLeafNode(node *Node) bool {
 }
 
 func getRandomUnexploredChild(node *Node) *Node {
-	//var unexplored []*Node
+	var unexplored []*Node
 	for _, child := range node.children {
 		if child.plays == 0 {
-			//unexplored = append(unexplored, child)
-			return child
+			unexplored = append(unexplored, child)
 		}
 	}
 
-	return nil
-	//return Shuffle(unexplored)[0]
+	return Shuffle(unexplored)[0]
 }
 
 func createChildren(node *Node) []*Node {
@@ -233,7 +231,7 @@ func createChildren(node *Node) []*Node {
 	var children []*Node
 	for _, moveSet := range productOfMoves {
 		cs := node.board.Clone()
-		cs.AdvanceBoard(movesToMap(moveSet))
+		cs.AdvanceBoard(moveSet)
 
 		moves := make(map[fastGame.SnakeId]fastGame.SnakeMove)
 		for _, m := range moveSet {
@@ -248,14 +246,6 @@ func createChildren(node *Node) []*Node {
 	}
 
 	return children
-}
-
-func movesToMap(moves []fastGame.SnakeMove) map[fastGame.SnakeId]fastGame.Move {
-	m := make(map[fastGame.SnakeId]fastGame.Move, len(moves))
-	for _, move := range moves {
-		m[move.Id] = move.Dir
-	}
-	return m
 }
 
 func createNode(moveSet map[fastGame.SnakeId]fastGame.SnakeMove, board *fastGame.FastBoard) *Node {
@@ -280,9 +270,9 @@ func createNode(moveSet map[fastGame.SnakeId]fastGame.SnakeMove, board *fastGame
 }
 
 func createPayoff(moves []fastGame.SnakeMove) Payoff {
-	plays := make(map[fastGame.Move]int, len(moves))
-	scores := make(map[fastGame.Move]int, len(moves))
-	heuristics := make(map[fastGame.Move]float64, len(moves))
+	plays := make(map[fastGame.Move]int)
+	scores := make(map[fastGame.Move]int)
+	heuristics := make(map[fastGame.Move]float64)
 
 	for _, m := range moves {
 		plays[m.Dir] = 0
