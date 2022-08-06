@@ -55,6 +55,7 @@ func MCTS(board *fastGame.FastBoard, txn *newrelic.Transaction) fastGame.SnakeMo
 		panic("could not parse duration")
 	}
 
+	maxDepth := 0
 loop:
 	for timeout := time.After(duration); ; {
 		select {
@@ -73,6 +74,9 @@ loop:
 			score := simulateNode(child)
 			s.End()
 			child.plays += 1
+			if maxDepth < child.depth {
+				maxDepth = child.depth
+			}
 
 			s = txn.StartSegment("backpropagate")
 			backpropagate(node, score)
@@ -91,6 +95,7 @@ loop:
 	log.Println("# Selected #")
 	log.Println(bestMove)
 	log.Println("Total plays: ", root.plays)
+	log.Println("Max depth: ", maxDepth)
 	addAttributes(txn, root, bestMove)
 	return bestMove
 }

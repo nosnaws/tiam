@@ -433,22 +433,22 @@ func (b *FastBoard) Clone() FastBoard {
 	newBoard.list = make([]Tile, len(b.list))
 	copy(newBoard.list, b.list)
 
-	newBoard.ids = make(map[string]SnakeId)
+	newBoard.ids = make(map[string]SnakeId, len(b.ids))
 	for sId, id := range b.ids {
 		newBoard.ids[sId] = id
 	}
 
-	newBoard.Heads = make(map[SnakeId]uint16)
+	newBoard.Heads = make(map[SnakeId]uint16, len(b.Heads))
 	for id, h := range b.Heads {
 		newBoard.Heads[id] = h
 	}
 
-	newBoard.Lengths = make(map[SnakeId]uint8)
+	newBoard.Lengths = make(map[SnakeId]uint8, len(b.Lengths))
 	for id, l := range b.Lengths {
 		newBoard.Lengths[id] = l
 	}
 
-	newBoard.Healths = make(map[SnakeId]int8)
+	newBoard.Healths = make(map[SnakeId]int8, len(b.Healths))
 	for id, h := range b.Healths {
 		newBoard.Healths[id] = h
 	}
