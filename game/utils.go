@@ -14,6 +14,11 @@ const (
 	Down       = "down"
 )
 
+var leftPoint = Point{X: -1, Y: 0}
+var rightPoint = Point{X: 1, Y: 0}
+var upPoint = Point{X: 0, Y: 1}
+var downPoint = Point{X: 0, Y: -1}
+
 func indexToPoint(index uint16, width uint16) Point {
 	return Point{X: int8(index % width), Y: int8(index / width)}
 }
@@ -53,13 +58,13 @@ func adjustForWrapped(p Point, width, height uint16) Point {
 
 func moveToPoint(m Move) Point {
 	if m == Left {
-		return Point{X: -1, Y: 0}
+		return leftPoint
 	} else if m == Right {
-		return Point{X: 1, Y: 0}
+		return rightPoint
 	} else if m == Up {
-		return Point{X: 0, Y: 1}
+		return upPoint
 	}
-	return Point{X: 0, Y: -1}
+	return downPoint
 }
 
 func addPoints(a, b Point) Point {
