@@ -84,14 +84,15 @@ loop:
 		}
 	}
 
-	bestMove := selectFinalMove(root)
+	//bestMove := selectFinalMove(root)
+	bestMove := bestMoveUTC(root, fastGame.MeId, calculateUCB)
 	printNode(root)
-	for _, child := range root.children {
-		printNode(child)
-		//for _, c := range child.children {
-		//printNode(c)
-		//}
-	}
+	//for _, child := range root.children {
+	//printNode(child)
+	////for _, c := range child.children {
+	////printNode(c)
+	////}
+	//}
 	log.Println("# Selected #")
 	log.Println(bestMove)
 	log.Println("Total plays: ", root.plays)
@@ -137,29 +138,20 @@ func simulateNode(node *Node) map[fastGame.SnakeId]SnakeScore {
 
 	ns := node.board.Clone()
 
-	// If still in the game, playout.
-	// If not, give all other players a win
-	if ns.Lengths[fastGame.MeId] > 0 {
-		ns.RandomRollout()
-	}
-
-	nodeHeuristic := calculateNodeHeuristic(node, fastGame.MeId)
+	ns.RandomRollout(6)
 
 	scores := make(map[fastGame.SnakeId]SnakeScore, len(ns.Heads))
-	for id, l := range ns.Lengths {
-		snakeHeuristic := nodeHeuristic
-		if id != fastGame.MeId {
-			snakeHeuristic = -snakeHeuristic
-		}
+	for id := range ns.Lengths {
+		stateHeuristic := calculateStateHeuristic(ns, id)
 
 		score := SnakeScore{
 			id:        id,
 			value:     0,
 			move:      node.moveSet[id].Dir,
-			heuristic: snakeHeuristic,
+			heuristic: stateHeuristic,
 		}
 
-		if l > 0 {
+		if ns.IsGameOver() && ns.IsSnakeAlive(id) {
 			score.value = 1
 		}
 		scores[id] = score
@@ -184,6 +176,7 @@ func backpropagate(node *Node, scores map[fastGame.SnakeId]SnakeScore) {
 
 			h := node.payoffs[id].heuristic[score.move]
 			node.payoffs[id].heuristic[score.move] = math.Max(h, score.heuristic)
+			//node.payoffs[id].heuristic[score.move] = h + score.heuristic
 		}
 
 		if _, ok := node.moveSet[id]; ok {
@@ -311,7 +304,7 @@ func selectFinalMove(node *Node) fastGame.SnakeMove {
 	moves := node.possibleMoves[fastGame.MeId]
 	payoff := node.payoffs[fastGame.MeId]
 	sort.Slice(moves, func(a, b int) bool {
-		return payoff.scores[moves[a].Dir] > payoff.scores[moves[b].Dir]
+		return payoff.heuristic[moves[a].Dir] > payoff.heuristic[moves[b].Dir]
 	})
 
 	return moves[0]
@@ -321,7 +314,7 @@ func bestUTC(node *Node) *Node {
 	var moveSet []fastGame.SnakeMove
 	for id, l := range node.board.Lengths {
 		if l > 0 {
-			bestMove := bestMoveUTC(node, id)
+			bestMove := bestMoveUTC(node, id, calculateUCB)
 			moveSet = append(moveSet, bestMove)
 		}
 	}
@@ -346,13 +339,27 @@ func isStateEqual(a []fastGame.SnakeMove, b map[fastGame.SnakeId]fastGame.SnakeM
 	return equal
 }
 
-func bestMoveUTC(node *Node, id fastGame.SnakeId) fastGame.SnakeMove {
+func bestMoveUTC(node *Node, id fastGame.SnakeId, ucb func(*Node, fastGame.SnakeId, fastGame.Move) float64) fastGame.SnakeMove {
 	moves := node.possibleMoves[id]
 	sort.Slice(moves, func(a, b int) bool {
-		return calculateUCB(node, id, moves[a].Dir) > calculateUCB(node, id, moves[b].Dir)
+		return ucb(node, id, moves[a].Dir) > ucb(node, id, moves[b].Dir)
 	})
 
 	return moves[0]
+}
+
+func calculateEarlyTermUCB(node *Node, id fastGame.SnakeId, move fastGame.Move) float64 {
+	payoff := node.payoffs[id]
+	alpha := float64(0.1)
+
+	score := float64(payoff.scores[move])
+	plays := float64(payoff.plays[move])
+	heuristic := float64(payoff.heuristic[move])
+
+	exploitation := (1 - alpha) * (score / plays)
+	exploration := alpha * heuristic
+
+	return exploitation + exploration
 }
 
 func calculateUCB(node *Node, id fastGame.SnakeId, move fastGame.Move) float64 {
@@ -405,4 +412,30 @@ func calculateNodeHeuristic(node *Node, id fastGame.SnakeId) float64 {
 	lengthScore := 1 * node.board.Lengths[fastGame.MeId]
 
 	return float64(total) + float64(snakeScore) + healthScore + float64(lengthScore)
+}
+
+func calculateStateHeuristic(board fastGame.FastBoard, id fastGame.SnakeId) float64 {
+	if board.IsGameOver() {
+		if board.IsSnakeAlive(id) {
+			return 100
+		}
+	}
+
+	if !board.IsSnakeAlive(id) {
+		return -100
+	}
+
+	total := float64(0)
+	otherSnakes := 0
+	for sId := range board.Lengths {
+		if sId != id && board.IsSnakeAlive(sId) {
+			otherSnakes += 1
+		}
+	}
+
+	total += float64(10 / otherSnakes)
+	total += float64(board.Healths[id] / 100)
+	total += float64(board.Lengths[id])
+
+	return total
 }

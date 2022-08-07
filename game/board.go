@@ -301,9 +301,16 @@ func (b *FastBoard) kill(id SnakeId) {
 	b.Heads[id] = 0
 }
 
-func (b *FastBoard) RandomRollout() {
+func (b *FastBoard) RandomRollout(numTurns uint16) {
+	// numTurns == 0, play till game ends
+	turn := uint16(0)
 	moves := make(map[SnakeId]Move, len(b.Lengths))
 	for !b.IsGameOver() {
+		if numTurns != 0 && turn >= numTurns {
+			break
+		} else {
+			turn += 1
+		}
 		//moves := make([]SnakeMove, 0, len(b.Lengths))
 
 		for id, l := range b.Lengths {
@@ -429,6 +436,14 @@ func (b *FastBoard) IsGameOver() bool {
 	}
 
 	return len(snakesLeft) < 2
+}
+
+func (b *FastBoard) IsSnakeAlive(id SnakeId) bool {
+	if b.Lengths[id] > 0 {
+		return true
+	}
+
+	return false
 }
 
 func (b *FastBoard) pointInDirection(m Move, cur uint16) Point {
