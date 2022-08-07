@@ -431,6 +431,14 @@ func (b *FastBoard) IsGameOver() bool {
 	return len(snakesLeft) < 2
 }
 
+func (b *FastBoard) IsSnakeAlive(id SnakeId) bool {
+	if b.Lengths[id] > 0 {
+		return true
+	}
+
+	return false
+}
+
 func (b *FastBoard) pointInDirection(m Move, cur uint16) Point {
 	p := addPoints(indexToPoint(cur, b.width), moveToPoint(m))
 	if b.isWrapped {

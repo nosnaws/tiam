@@ -86,12 +86,12 @@ loop:
 
 	bestMove := selectFinalMove(root)
 	printNode(root)
-	for _, child := range root.children {
-		printNode(child)
-		//for _, c := range child.children {
-		//printNode(c)
-		//}
-	}
+	//for _, child := range root.children {
+	//printNode(child)
+	//for _, c := range child.children {
+	//printNode(c)
+	//}
+	//}
 	log.Println("# Selected #")
 	log.Println(bestMove)
 	log.Println("Total plays: ", root.plays)
@@ -389,6 +389,9 @@ func calculateNodeHeuristic(node *Node, id fastGame.SnakeId) float64 {
 	//b := 8.0
 	//foodDistance := float64(len(closestFoodPath))
 	//foodScore := a * math.Atan(health-foodDistance/b)
+	if !node.board.IsSnakeAlive(id) {
+		return -math.MaxFloat64
+	}
 
 	var otherSnakes []fastGame.SnakeId
 	total := 0
