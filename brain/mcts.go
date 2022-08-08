@@ -67,7 +67,8 @@ loop:
 		}
 	}
 
-	bestMove := selectFinalMove(root)
+	//bestMove := selectFinalMove(root)
+	bestMove := bestMoveUTC(root, fastGame.MeId)
 	printNode(root)
 	//for _, child := range root.children {
 	//printNode(child)
@@ -368,7 +369,7 @@ func bestMoveUTC(node *Node, id fastGame.SnakeId) fastGame.SnakeMove {
 func calculateUCB(node *Node, id fastGame.SnakeId, move fastGame.Move) float64 {
 	payoff := node.payoffs[id]
 	explorationConstant := math.Sqrt(2)
-	alpha := float64(0.1)
+	alpha := float64(0.3)
 
 	numParentSims := float64(node.plays)
 	score := payoff.scores[move]
