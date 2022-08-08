@@ -62,23 +62,17 @@ loop:
 		case <-timeout:
 			break loop
 		default:
-			s := txn.StartSegment("select")
+			s := txn.StartSegment("MCTS_ITERATION")
 			node := selectNode(root)
-			s.End()
 
-			s = txn.StartSegment("expand")
 			child := expandNode(node)
-			s.End()
 
-			s = txn.StartSegment("simulate")
 			score := simulateNode(child)
-			s.End()
 			child.plays += 1
 			if maxDepth < child.depth {
 				maxDepth = child.depth
 			}
 
-			s = txn.StartSegment("backpropagate")
 			backpropagate(node, score)
 			s.End()
 		}
@@ -137,16 +131,12 @@ func simulateNode(node *Node) map[fastGame.SnakeId]SnakeScore {
 
 	ns := node.board.Clone()
 
-	// If still in the game, playout.
-	// If not, give all other players a win
-	if ns.Lengths[fastGame.MeId] > 0 {
-		ns.RandomRollout()
-	}
+	ns.RandomRollout()
 
 	nodeHeuristic := calculateNodeHeuristic(node, fastGame.MeId)
 
 	scores := make(map[fastGame.SnakeId]SnakeScore, len(ns.Heads))
-	for id, l := range ns.Lengths {
+	for id := range ns.Lengths {
 		snakeHeuristic := nodeHeuristic
 		if id != fastGame.MeId {
 			snakeHeuristic = -snakeHeuristic
@@ -159,7 +149,7 @@ func simulateNode(node *Node) map[fastGame.SnakeId]SnakeScore {
 			heuristic: snakeHeuristic,
 		}
 
-		if l > 0 {
+		if ns.IsSnakeAlive(id) {
 			score.value = 1
 		}
 		scores[id] = score
