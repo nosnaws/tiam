@@ -143,14 +143,15 @@ func simulateNode(node *Node) map[fastGame.SnakeId]SnakeScore {
 		ns.RandomRollout()
 	}
 
-	nodeHeuristic := calculateNodeHeuristic(node, fastGame.MeId)
+	//nodeHeuristic := calculateNodeHeuristic(node, fastGame.MeId)
 
 	scores := make(map[fastGame.SnakeId]SnakeScore, len(ns.Heads))
 	for id, l := range ns.Lengths {
-		snakeHeuristic := nodeHeuristic
-		if id != fastGame.MeId {
-			snakeHeuristic = -snakeHeuristic
-		}
+		snakeHeuristic := calculateNodeHeuristic(node, id)
+		//snakeHeuristic := nodeHeuristic
+		//if id != fastGame.MeId {
+		//snakeHeuristic = -snakeHeuristic
+		//}
 
 		score := SnakeScore{
 			id:        id,
@@ -357,7 +358,7 @@ func bestMoveUTC(node *Node, id fastGame.SnakeId) fastGame.SnakeMove {
 
 func calculateUCB(node *Node, id fastGame.SnakeId, move fastGame.Move) float64 {
 	payoff := node.payoffs[id]
-	explorationConstant := math.Sqrt(2)
+	explorationConstant := math.Sqrt(2.5)
 	alpha := float64(0.1)
 
 	numParentSims := float64(node.plays)
@@ -389,23 +390,25 @@ func calculateNodeHeuristic(node *Node, id fastGame.SnakeId) float64 {
 	//b := 8.0
 	//foodDistance := float64(len(closestFoodPath))
 	//foodScore := a * math.Atan(health-foodDistance/b)
+	if node.board.IsGameOver() {
+		if node.board.IsSnakeAlive(id) {
+			return math.MaxFloat64
+		}
+	}
 	if !node.board.IsSnakeAlive(id) {
 		return -math.MaxFloat64
 	}
 
-	var otherSnakes []fastGame.SnakeId
 	total := 0
-	for id, health := range node.board.Healths {
-		if id == fastGame.MeId && health > 0 {
-			total += 100
-		}
-		if id != fastGame.MeId && health > 0 {
-			otherSnakes = append(otherSnakes, id)
+	otherSnakes := 0
+	for sId := range node.board.Lengths {
+		if sId != id && node.board.IsSnakeAlive(sId) {
+			otherSnakes += 1
 		}
 	}
-	snakeScore := 10 / (len(otherSnakes) + 1)
+	snakeScore := 1 / (otherSnakes + 1)
 	healthScore := float64(health / 100)
-	lengthScore := 1 * node.board.Lengths[fastGame.MeId]
+	lengthScore := 1 * node.board.Lengths[id]
 
 	return float64(total) + float64(snakeScore) + healthScore + float64(lengthScore)
 }
