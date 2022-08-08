@@ -67,7 +67,8 @@ loop:
 		}
 	}
 
-	bestMove := selectFinalMove(root)
+	//bestMove := selectFinalMove(root)
+	bestMove := bestMoveUCB(root, fastGame.MeId, calculateNoSimUCB)
 	printNode(root)
 	//for _, child := range root.children {
 	//printNode(child)
@@ -149,9 +150,9 @@ func simulateNode(node *Node) map[fastGame.SnakeId]SnakeScore {
 
 	// If still in the game, playout.
 	// If not, give all other players a win
-	if ns.Lengths[fastGame.MeId] > 0 {
-		ns.RandomRollout()
-	}
+	//if ns.Lengths[fastGame.MeId] > 0 {
+	//ns.RandomRollout()
+	//}
 
 	nodeHeuristic := calculateNodeHeuristic(node, fastGame.MeId)
 
@@ -331,7 +332,7 @@ func bestUTC(node *Node) *Node {
 	var moveSet []fastGame.SnakeMove
 	for id, l := range node.board.Lengths {
 		if l > 0 {
-			bestMove := bestMoveUTC(node, id)
+			bestMove := bestMoveUCB(node, id, calculateNoSimUCB)
 			moveSet = append(moveSet, bestMove)
 		}
 	}
@@ -356,7 +357,7 @@ func isStateEqual(a []fastGame.SnakeMove, b map[fastGame.SnakeId]fastGame.SnakeM
 	return equal
 }
 
-func bestMoveUTC(node *Node, id fastGame.SnakeId) fastGame.SnakeMove {
+func bestMoveUCB(node *Node, id fastGame.SnakeId, ucb func(*Node, fastGame.SnakeId, fastGame.Move) float64) fastGame.SnakeMove {
 	moves := node.possibleMoves[id]
 	sort.Slice(moves, func(a, b int) bool {
 		return calculateUCB(node, id, moves[a].Dir) > calculateUCB(node, id, moves[b].Dir)
@@ -376,6 +377,20 @@ func calculateUCB(node *Node, id fastGame.SnakeId, move fastGame.Move) float64 {
 	heuristic := payoff.heuristic[move]
 
 	exploitation := (1-alpha)*(float64(score)/float64(plays)) + alpha*heuristic
+	exploration := explorationConstant * math.Sqrt(math.Log(numParentSims)/float64(plays))
+
+	return exploitation + exploration
+}
+
+func calculateNoSimUCB(node *Node, id fastGame.SnakeId, move fastGame.Move) float64 {
+	payoff := node.payoffs[id]
+	explorationConstant := math.Sqrt(2)
+
+	numParentSims := float64(node.plays)
+	plays := payoff.plays[move]
+	heuristic := payoff.heuristic[move]
+
+	exploitation := (float64(heuristic) / float64(plays))
 	exploration := explorationConstant * math.Sqrt(math.Log(numParentSims)/float64(plays))
 
 	return exploitation + exploration
