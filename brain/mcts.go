@@ -67,8 +67,7 @@ loop:
 		}
 	}
 
-	//bestMove := selectFinalMove(root)
-	bestMove := bestMoveUTC(root, fastGame.MeId)
+	bestMove := selectFinalMove(root)
 	printNode(root)
 	//for _, child := range root.children {
 	//printNode(child)
