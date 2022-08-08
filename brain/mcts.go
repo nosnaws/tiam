@@ -55,32 +55,15 @@ func MCTS(board *fastGame.FastBoard, txn *newrelic.Transaction) fastGame.SnakeMo
 		panic("could not parse duration")
 	}
 
-	maxDepth := 0
+	stopFlag := false
+	go mctsLoop(root, &stopFlag, txn)
 loop:
 	for timeout := time.After(duration); ; {
 		select {
 		case <-timeout:
+			stopFlag = true
 			break loop
 		default:
-			s := txn.StartSegment("select")
-			node := selectNode(root)
-			s.End()
-
-			s = txn.StartSegment("expand")
-			child := expandNode(node)
-			s.End()
-
-			s = txn.StartSegment("simulate")
-			score := simulateNode(child)
-			s.End()
-			child.plays += 1
-			if maxDepth < child.depth {
-				maxDepth = child.depth
-			}
-
-			s = txn.StartSegment("backpropagate")
-			backpropagate(node, score)
-			s.End()
 		}
 	}
 
@@ -95,9 +78,36 @@ loop:
 	log.Println("# Selected #")
 	log.Println(bestMove)
 	log.Println("Total plays: ", root.plays)
-	log.Println("Max depth: ", maxDepth)
 	addAttributes(txn, root, bestMove)
 	return bestMove
+}
+
+func mctsLoop(root *Node, stopFlag *bool, txn *newrelic.Transaction) {
+	maxDepth := 0
+	for !*stopFlag {
+		s := txn.StartSegment("select")
+		node := selectNode(root)
+		s.End()
+
+		s = txn.StartSegment("expand")
+		child := expandNode(node)
+		s.End()
+
+		s = txn.StartSegment("simulate")
+		score := simulateNode(child)
+		s.End()
+		child.plays += 1
+		if maxDepth < child.depth {
+			maxDepth = child.depth
+		}
+
+		s = txn.StartSegment("backpropagate")
+		backpropagate(node, score)
+		s.End()
+	}
+
+	log.Println("Max depth: ", maxDepth)
+	txn.AddAttribute("maxDepth", maxDepth)
 }
 
 func selectNode(node *Node) *Node {
