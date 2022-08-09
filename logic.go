@@ -8,6 +8,7 @@ package main
 import (
 	//"github.com/newrelic/go-agent/v3/newrelic"
 	"log"
+	"math"
 
 	"github.com/newrelic/go-agent/v3/newrelic"
 	"github.com/nosnaws/tiam/brain"
@@ -50,8 +51,10 @@ func move(state fastGame.GameState, txn *newrelic.Transaction) fastGame.Battlesn
 	log.Println("START TURN: ", state.Turn)
 	gameBoard := fastGame.BuildBoard(state)
 
-	move := brain.MCTS(&gameBoard, txn)
+	//move := brain.MCTS(&gameBoard, txn)
+	move := brain.AlphaBeta(gameBoard, 2, int32(math.Inf(-1)), int32(math.Inf(1)), true, fastGame.MeId, fastGame.SnakeMove{}).Move
 
+	log.Println("SELECTED: ", move.Dir)
 	log.Println("RETURNING TURN: ", state.Turn)
 	if move.Dir == fastGame.Left {
 		return fastGame.BattlesnakeMoveResponse{

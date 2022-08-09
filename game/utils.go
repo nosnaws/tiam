@@ -102,13 +102,13 @@ func GetCartesianProductOfMoves(board FastBoard) [][]SnakeMove {
 	}
 
 	for i := 1; i < len(allMoves); i++ {
-		temp = cartesianProduct(temp, allMoves[i])
+		temp = CartesianProduct(temp, allMoves[i])
 	}
 
 	return temp
 }
 
-func cartesianProduct(movesA [][]SnakeMove, movesB []SnakeMove) [][]SnakeMove {
+func CartesianProduct(movesA [][]SnakeMove, movesB []SnakeMove) [][]SnakeMove {
 	var result [][]SnakeMove
 	for _, a := range movesA {
 		for _, b := range movesB {
