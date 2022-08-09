@@ -36,10 +36,11 @@ type SnakeScore struct {
 	heuristic float64
 }
 
-func addAttributes(txn *newrelic.Transaction, root *Node, selected fastGame.SnakeMove) {
+func addAttributes(txn *newrelic.Transaction, root *Node, selected fastGame.SnakeMove, maxDepth int) {
 	if txn != nil {
 		txn.AddAttribute("totalPlays", root.plays)
 		txn.AddAttribute("selectedMove", selected.Dir)
+		txn.AddAttribute("maxDepth", maxDepth)
 	}
 }
 
@@ -90,7 +91,7 @@ loop:
 	log.Println(bestMove)
 	log.Println("Total plays: ", root.plays)
 	log.Println("Max depth: ", maxDepth)
-	addAttributes(txn, root, bestMove)
+	addAttributes(txn, root, bestMove, maxDepth)
 	return bestMove
 }
 
