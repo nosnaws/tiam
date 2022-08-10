@@ -420,15 +420,14 @@ func (b *FastBoard) isOffBoard(p Point) bool {
 }
 
 func (b *FastBoard) IsGameOver() bool {
-	var snakesLeft []SnakeId
-	for id, length := range b.Lengths {
-		if length == 0 {
-			continue
+	snakesLeft := 0
+	for id := range b.Lengths {
+		if b.IsSnakeAlive(id) {
+			snakesLeft += 1
 		}
-		snakesLeft = append(snakesLeft, id)
 	}
 
-	return len(snakesLeft) < 2
+	return snakesLeft < 2
 }
 
 func (b *FastBoard) IsSnakeAlive(id SnakeId) bool {

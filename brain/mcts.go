@@ -80,6 +80,7 @@ loop:
 	}
 
 	bestMove := selectFinalMove(root)
+	//bestMove := bestMoveUTC(root, fastGame.MeId)
 	printNode(root)
 	//for _, child := range root.children {
 	//printNode(child)
@@ -107,6 +108,24 @@ func printNode(node *Node) {
 	log.Println("#############")
 	node.board.Print()
 	log.Println("Depth", node.depth)
+	log.Println("Total plays", node.plays)
+
+	for id, payoff := range node.payoffs {
+		log.Println("Player", id)
+		log.Println("Health", node.board.Healths[id])
+		log.Println("Length", node.board.Lengths[id])
+		log.Println("Plays", payoff.plays)
+		log.Println("Scores", payoff.scores)
+		log.Println("Heuristics", payoff.heuristic)
+	}
+
+	for _, child := range node.children {
+		printChild(child)
+	}
+}
+
+func printChild(node *Node) {
+	log.Printf("-- depth:%d moves: %v --", node.depth, node.moveSet)
 	log.Println("Total plays", node.plays)
 	for id, payoff := range node.payoffs {
 		log.Println("Player", id)
@@ -136,6 +155,13 @@ func simulateNode(node *Node) map[fastGame.SnakeId]SnakeScore {
 
 	nodeHeuristic := calculateNodeHeuristic(node, fastGame.MeId)
 
+	isDraw := true
+	for id := range ns.Lengths {
+		if ns.IsSnakeAlive(id) {
+			isDraw = false
+		}
+	}
+
 	scores := make(map[fastGame.SnakeId]SnakeScore, len(ns.Heads))
 	for id := range ns.Lengths {
 		snakeHeuristic := nodeHeuristic
@@ -150,8 +176,16 @@ func simulateNode(node *Node) map[fastGame.SnakeId]SnakeScore {
 			heuristic: snakeHeuristic,
 		}
 
-		if ns.IsSnakeAlive(id) {
+		//if ns.IsSnakeAlive(id) {
+		//score.value = 1
+		//}
+
+		if isDraw {
+			score.value = 0
+		} else if ns.IsSnakeAlive(id) {
 			score.value = 1
+		} else {
+			score.value = 0
 		}
 		scores[id] = score
 	}
@@ -167,14 +201,16 @@ func backpropagate(node *Node, scores map[fastGame.SnakeId]SnakeScore) {
 	pastMovesWithScore := make(map[fastGame.SnakeId]SnakeScore)
 	node.plays += 1
 	for id := range node.board.Lengths {
-		if _, ok := node.payoffs[id]; ok {
+		if payoff, ok := node.payoffs[id]; ok {
 			score := scores[id]
-			node.payoffs[id].plays[score.move] += 1
+			payoff.plays[score.move] += 1
 
-			node.payoffs[id].scores[score.move] += score.value
+			payoff.scores[score.move] += score.value
 
-			h := node.payoffs[id].heuristic[score.move]
-			node.payoffs[id].heuristic[score.move] = math.Max(h, score.heuristic)
+			h := payoff.heuristic[score.move]
+			payoff.heuristic[score.move] = math.Max(score.heuristic, h)
+
+			node.payoffs[id] = payoff
 		}
 
 		if _, ok := node.moveSet[id]; ok {
@@ -188,9 +224,7 @@ func backpropagate(node *Node, scores map[fastGame.SnakeId]SnakeScore) {
 				move:      node.moveSet[id].Dir,
 				heuristic: scores[id].heuristic,
 			}
-
 		}
-
 	}
 
 	backpropagate(node.parent, pastMovesWithScore)
@@ -211,16 +245,16 @@ func isLeafNode(node *Node) bool {
 }
 
 func getRandomUnexploredChild(node *Node) *Node {
-	//var unexplored []*Node
+	var unexplored []*Node
 	for _, child := range node.children {
 		if child.plays == 0 {
-			//unexplored = append(unexplored, child)
-			return child
+			unexplored = append(unexplored, child)
+			//return child
 		}
 	}
 
-	return nil
-	//return Shuffle(unexplored)[0]
+	//return nil
+	return Shuffle(unexplored)[0]
 }
 
 func createChildren(node *Node) []*Node {
@@ -257,9 +291,8 @@ func movesToMap(moves []fastGame.SnakeMove) map[fastGame.SnakeId]fastGame.Move {
 func createNode(moveSet map[fastGame.SnakeId]fastGame.SnakeMove, board *fastGame.FastBoard) *Node {
 	possibleMoves := make(map[fastGame.SnakeId][]fastGame.SnakeMove)
 	payoffs := make(map[fastGame.SnakeId]Payoff)
-	for id, length := range board.Lengths {
-		isAlive := length > 0
-		if !isAlive {
+	for id := range board.Lengths {
+		if !board.IsSnakeAlive(id) {
 			continue
 		}
 		moves := board.GetMovesForSnake(id)
@@ -267,25 +300,27 @@ func createNode(moveSet map[fastGame.SnakeId]fastGame.SnakeMove, board *fastGame
 		payoffs[id] = createPayoff(moves)
 	}
 
-	return &Node{
+	node := Node{
 		possibleMoves: possibleMoves,
 		board:         board,
 		payoffs:       payoffs,
 		moveSet:       moveSet,
 	}
+
+	return &node
 }
 
 func createPayoff(moves []fastGame.SnakeMove) Payoff {
 	plays := make(map[fastGame.Move]int, len(moves))
 	scores := make(map[fastGame.Move]int, len(moves))
-	heuristics := make(map[fastGame.Move]float64, len(moves))
+	heuristic := make(map[fastGame.Move]float64, len(moves))
 
 	for _, m := range moves {
 		plays[m.Dir] = 0
 		scores[m.Dir] = 0
-		heuristics[m.Dir] = 0
+		heuristic[m.Dir] = 0
 	}
-	return Payoff{plays: plays, scores: scores, heuristic: heuristics}
+	return Payoff{plays: plays, scores: scores, heuristic: heuristic}
 }
 
 func Shuffle(nodes []*Node) []*Node {
@@ -300,18 +335,24 @@ func Shuffle(nodes []*Node) []*Node {
 
 func selectFinalMove(node *Node) fastGame.SnakeMove {
 	moves := node.possibleMoves[fastGame.MeId]
-	payoff := node.payoffs[fastGame.MeId]
 	sort.Slice(moves, func(a, b int) bool {
-		return payoff.scores[moves[a].Dir] > payoff.scores[moves[b].Dir]
+		return moveSecureness(node, fastGame.MeId, moves[a]) > moveSecureness(node, fastGame.MeId, moves[b])
 	})
 
 	return moves[0]
 }
 
+func moveSecureness(node *Node, player fastGame.SnakeId, move fastGame.SnakeMove) float64 {
+	score := float64(node.payoffs[player].scores[move.Dir])
+	plays := float64(node.payoffs[player].plays[move.Dir])
+
+	return score / plays
+}
+
 func bestUTC(node *Node) *Node {
 	var moveSet []fastGame.SnakeMove
-	for id, l := range node.board.Lengths {
-		if l > 0 {
+	for id := range node.board.Lengths {
+		if node.board.IsSnakeAlive(id) {
 			bestMove := bestMoveUTC(node, id)
 			moveSet = append(moveSet, bestMove)
 		}
@@ -349,14 +390,15 @@ func bestMoveUTC(node *Node, id fastGame.SnakeId) fastGame.SnakeMove {
 func calculateUCB(node *Node, id fastGame.SnakeId, move fastGame.Move) float64 {
 	payoff := node.payoffs[id]
 	explorationConstant := math.Sqrt(2)
-	alpha := float64(0.3)
+	alpha := float64(0.1)
 
 	numParentSims := float64(node.plays)
-	score := payoff.scores[move]
-	plays := payoff.plays[move]
-	heuristic := payoff.heuristic[move]
+	score := float64(payoff.scores[move])
+	plays := float64(payoff.plays[move])
+	heuristic := math.Abs(payoff.heuristic[move])
 
-	exploitation := (1-alpha)*(float64(score)/float64(plays)) + alpha*heuristic
+	exploitation := (1-alpha)*(float64(score)/float64(plays)) + alpha*(heuristic/plays)
+	//exploitation := score / plays
 	exploration := explorationConstant * math.Sqrt(math.Log(numParentSims)/float64(plays))
 
 	return exploitation + exploration
@@ -384,19 +426,17 @@ func calculateNodeHeuristic(node *Node, id fastGame.SnakeId) float64 {
 		return -math.MaxFloat64
 	}
 
-	var otherSnakes []fastGame.SnakeId
+	//var otherSnakes []fastGame.SnakeId
+	otherSnakes := 0
 	total := 0
-	for id, health := range node.board.Healths {
-		if id == fastGame.MeId && health > 0 {
-			total += 100
-		}
-		if id != fastGame.MeId && health > 0 {
-			otherSnakes = append(otherSnakes, id)
+	for sId, health := range node.board.Healths {
+		if sId != id && health > 0 {
+			otherSnakes += 1
 		}
 	}
-	snakeScore := 10 / (len(otherSnakes) + 1)
+	snakeScore := 10 / (otherSnakes + 1)
 	healthScore := float64(health / 100)
-	lengthScore := 1 * node.board.Lengths[fastGame.MeId]
+	lengthScore := 1 * node.board.Lengths[id]
 
 	return float64(total) + float64(snakeScore) + healthScore + float64(lengthScore)
 }
