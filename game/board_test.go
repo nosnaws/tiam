@@ -6,6 +6,83 @@ import (
 	"testing"
 )
 
+func TestGetMovesForSnake(t *testing.T) {
+	//t.Skip()
+	// _ _ _ _ _ s s s s s _
+	// s s s s s s _ f s s f
+	// s _ _ _ s s s s h _ _
+	// s _ _ _ s s s e _ _ _
+	// s _ _ _ _ _ s s _ _ _
+	// s _ _ _ _ _ _ _ _ _ _
+	// _ _ _ _ _ _ _ _ _ _ _
+	// _ _ _ _ _ _ _ _ _ _ _
+	// _ _ _ _ _ _ _ _ _ _ _
+	// _ _ _ _ _ _ _ _ _ _ _
+	// _ _ _ _ _ _ _ _ _ _ _
+	me := Battlesnake{
+		ID:     "me",
+		Health: 100,
+		Body: []Coord{
+			{X: 8, Y: 8},
+			{X: 8, Y: 9},
+			{X: 9, Y: 9},
+			{X: 9, Y: 10},
+			{X: 8, Y: 10},
+			{X: 7, Y: 10},
+			{X: 6, Y: 10},
+			{X: 5, Y: 10},
+			{X: 5, Y: 9},
+			{X: 5, Y: 8},
+			{X: 6, Y: 8},
+			{X: 7, Y: 8},
+		},
+	}
+	two := Battlesnake{
+		ID:     "two",
+		Health: 100,
+		Body: []Coord{
+			{X: 7, Y: 7},
+			{X: 7, Y: 6},
+			{X: 6, Y: 6},
+			{X: 6, Y: 7},
+			{X: 5, Y: 7},
+			{X: 4, Y: 7},
+			{X: 4, Y: 8},
+			{X: 4, Y: 9},
+			{X: 3, Y: 9},
+			{X: 2, Y: 9},
+			{X: 1, Y: 9},
+			{X: 0, Y: 9},
+			{X: 0, Y: 8},
+			{X: 0, Y: 7},
+			{X: 0, Y: 6},
+			{X: 0, Y: 5},
+		},
+	}
+	state := GameState{
+		Turn: 0,
+		Board: Board{
+			Snakes: []Battlesnake{me, two},
+			Height: 11,
+			Width:  11,
+			Food: []Coord{
+				{X: 7, Y: 9},
+				{X: 10, Y: 9},
+			},
+		},
+		You: me,
+	}
+	board := BuildBoard(state)
+	moves := board.GetMovesForSnake(1)
+
+	if len(moves) != 3 {
+		board.Print()
+		fmt.Println(moves)
+		panic("Should only have 3 moves!")
+	}
+
+}
+
 func TestRandomRollout(t *testing.T) {
 	//t.Skip()
 	// e _ _
