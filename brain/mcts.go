@@ -63,7 +63,6 @@ loop:
 		case <-timeout:
 			break loop
 		default:
-			s := txn.StartSegment("MCTS_ITERATION")
 			node := selectNode(root)
 
 			child := expandNode(node)
@@ -75,7 +74,6 @@ loop:
 			}
 
 			backpropagate(node, score)
-			s.End()
 		}
 	}
 
