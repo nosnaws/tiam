@@ -650,7 +650,6 @@ func TestAdvanceBoardHazardDamage(t *testing.T) {
 	me := Battlesnake{
 		ID:     "me",
 		Health: 50,
-		Head:   Coord{X: 2, Y: 0},
 		Body:   []Coord{{X: 2, Y: 0}, {X: 1, Y: 0}, {X: 0, Y: 0}},
 	}
 	state := GameState{
@@ -678,7 +677,49 @@ func TestAdvanceBoardHazardDamage(t *testing.T) {
 	board.AdvanceBoard(moves)
 
 	if board.Healths[id] > 0 {
+		fmt.Println(board.Healths[id])
+		board.Print()
 		panic("Snake did not die!")
+	}
+}
+
+func TestAdvanceBoardStackedHazardDamage(t *testing.T) {
+	//t.Skip()
+	// _ _ _
+	// _ _ x
+	// s s h
+	me := Battlesnake{
+		ID:     "me",
+		Health: 100,
+		Head:   Coord{X: 2, Y: 0},
+		Body:   []Coord{{X: 2, Y: 0}, {X: 1, Y: 0}, {X: 0, Y: 0}},
+	}
+	state := GameState{
+		Turn: 3,
+		Board: Board{
+			Snakes:  []Battlesnake{me},
+			Height:  3,
+			Width:   3,
+			Hazards: []Coord{{X: 2, Y: 1}, {X: 2, Y: 1}, {X: 2, Y: 1}},
+		},
+		You: me,
+		Game: Game{
+			Ruleset: Ruleset{
+				Settings: Settings{
+					HazardDamagePerTurn: 10,
+				},
+			},
+		},
+	}
+	board := BuildBoard(state)
+	id := board.ids["me"]
+
+	moves := make(map[SnakeId]Move)
+	moves[id] = Up
+	board.AdvanceBoard(moves)
+
+	if board.Healths[id] != 69 {
+		panic("Snake did not take stacked hazard damage!")
 	}
 }
 

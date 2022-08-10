@@ -9,16 +9,23 @@ const MeId = SnakeId(1)
 
 var allMoves = [4]Move{Up, Left, Right, Down}
 
+type idsMap map[string]SnakeId
+type headsMap map[SnakeId]uint16
+type lengthsMap map[SnakeId]uint8
+type healthsMap map[SnakeId]int8
+type hazardDepthMap map[uint16]int8
+
 type FastBoard struct {
 	list         []Tile
-	ids          map[string]SnakeId
-	Heads        map[SnakeId]uint16
-	Lengths      map[SnakeId]uint8
-	Healths      map[SnakeId]int8
+	ids          idsMap
+	Heads        headsMap
+	Lengths      lengthsMap
+	Healths      healthsMap
 	width        uint16
 	height       uint16
 	isWrapped    bool
 	hazardDamage int8
+	hazardDepth  hazardDepthMap
 }
 
 type SnakeMove struct {
@@ -37,10 +44,11 @@ func BuildBoard(state GameState) FastBoard {
 	hazardDamage := int8(state.Game.Ruleset.Settings.HazardDamagePerTurn)
 	listLength := height * width
 
-	ids := make(map[string]SnakeId)
-	lengths := make(map[SnakeId]uint8)
-	healths := make(map[SnakeId]int8)
-	heads := make(map[SnakeId]uint16)
+	ids := make(idsMap)
+	lengths := make(lengthsMap)
+	healths := make(healthsMap)
+	heads := make(headsMap)
+	hazardDepth := make(hazardDepthMap)
 
 	curSnakeId := 1
 	ids[state.You.ID] = SnakeId(curSnakeId)
@@ -108,6 +116,7 @@ func BuildBoard(state GameState) FastBoard {
 		index := pointToIndex(p, width)
 		tile := list[index]
 		tile.SetHazard()
+		hazardDepth[index] += 1
 		list[index] = tile
 	}
 
@@ -129,6 +138,7 @@ func BuildBoard(state GameState) FastBoard {
 		Heads:        heads,
 		isWrapped:    state.Game.Ruleset.Name == "wrapped",
 		hazardDamage: hazardDamage,
+		hazardDepth:  hazardDepth,
 	}
 }
 
@@ -171,8 +181,7 @@ func (b *FastBoard) AdvanceBoard(moves map[SnakeId]Move) {
 			}
 
 			if moveTile.IsHazard() {
-				// TODO: handle stacked hazards
-				b.Healths[id] -= b.hazardDamage
+				b.Healths[id] -= b.hazardDamage * b.hazardDepth[newIndex]
 			}
 
 			// snake collision
@@ -463,29 +472,35 @@ func (b *FastBoard) Clone() FastBoard {
 	newBoard.list = make([]Tile, len(b.list))
 	copy(newBoard.list, b.list)
 
-	newBoard.ids = make(map[string]SnakeId, len(b.ids))
+	newBoard.ids = make(idsMap, len(b.ids))
 	for sId, id := range b.ids {
 		newBoard.ids[sId] = id
 	}
 
-	newBoard.Heads = make(map[SnakeId]uint16, len(b.Heads))
+	newBoard.Heads = make(headsMap, len(b.Heads))
 	for id, h := range b.Heads {
 		newBoard.Heads[id] = h
 	}
 
-	newBoard.Lengths = make(map[SnakeId]uint8, len(b.Lengths))
+	newBoard.Lengths = make(lengthsMap, len(b.Lengths))
 	for id, l := range b.Lengths {
 		newBoard.Lengths[id] = l
 	}
 
-	newBoard.Healths = make(map[SnakeId]int8, len(b.Healths))
+	newBoard.Healths = make(healthsMap, len(b.Healths))
 	for id, h := range b.Healths {
 		newBoard.Healths[id] = h
+	}
+
+	newBoard.hazardDepth = make(hazardDepthMap, len(b.hazardDepth))
+	for index, depth := range b.hazardDepth {
+		newBoard.hazardDepth[index] = depth
 	}
 
 	newBoard.width = b.width
 	newBoard.height = b.height
 	newBoard.isWrapped = b.isWrapped
+	newBoard.hazardDamage = b.hazardDamage
 
 	return newBoard
 }
@@ -513,6 +528,9 @@ func (b *FastBoard) Print() {
 	fmt.Println("######")
 	for id, length := range b.Lengths {
 		fmt.Printf("%d - length:%d\n", id, length)
+	}
+	for id, health := range b.Healths {
+		fmt.Printf("%d - health:%d\n", id, health)
 	}
 	for y := int(b.height - 1); y >= 0; y-- {
 		var line string
