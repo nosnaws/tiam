@@ -395,7 +395,7 @@ func calculateUCB(node *Node, id fastGame.SnakeId, move fastGame.Move) float64 {
 	numParentSims := float64(node.plays)
 	score := float64(payoff.scores[move])
 	plays := float64(payoff.plays[move])
-	heuristic := math.Abs(payoff.heuristic[move])
+	heuristic := payoff.heuristic[move]
 
 	exploitation := (1-alpha)*(float64(score)/float64(plays)) + alpha*(heuristic/plays)
 	//exploitation := score / plays
