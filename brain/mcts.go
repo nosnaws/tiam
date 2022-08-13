@@ -149,16 +149,18 @@ func simulateNode(node *Node) map[fastGame.SnakeId]SnakeScore {
 
 	ns := node.board.Clone()
 
+	//if ns.IsSnakeAlive(fastGame.MeId) {
 	ns.RandomRollout()
+	//}
 
 	nodeHeuristic := calculateNodeHeuristic(node, fastGame.MeId)
 
-	isDraw := true
-	for id := range ns.Lengths {
-		if ns.IsSnakeAlive(id) {
-			isDraw = false
-		}
-	}
+	//isDraw := true
+	//for id := range ns.Lengths {
+	//if ns.IsSnakeAlive(id) {
+	//isDraw = false
+	//}
+	//}
 
 	scores := make(map[fastGame.SnakeId]SnakeScore, len(ns.Heads))
 	for id := range ns.Lengths {
@@ -174,17 +176,17 @@ func simulateNode(node *Node) map[fastGame.SnakeId]SnakeScore {
 			heuristic: snakeHeuristic,
 		}
 
-		//if ns.IsSnakeAlive(id) {
-		//score.value = 1
-		//}
-
-		if isDraw {
-			score.value = 0
-		} else if ns.IsSnakeAlive(id) {
+		if ns.IsSnakeAlive(id) {
 			score.value = 1
-		} else {
-			score.value = 0
 		}
+
+		//if isDraw {
+		//score.value = 0
+		//} else if ns.IsSnakeAlive(id) {
+		//score.value = 1
+		//} else {
+		//score.value = -1
+		//}
 		scores[id] = score
 	}
 
@@ -341,10 +343,10 @@ func selectFinalMove(node *Node) fastGame.SnakeMove {
 }
 
 func moveSecureness(node *Node, player fastGame.SnakeId, move fastGame.SnakeMove) float64 {
-	score := float64(node.payoffs[player].scores[move.Dir])
+	//score := float64(node.payoffs[player].scores[move.Dir])
 	plays := float64(node.payoffs[player].plays[move.Dir])
 
-	return score / plays
+	return plays
 }
 
 func bestUTC(node *Node) *Node {
@@ -395,46 +397,41 @@ func calculateUCB(node *Node, id fastGame.SnakeId, move fastGame.Move) float64 {
 	plays := float64(payoff.plays[move])
 	heuristic := payoff.heuristic[move]
 
-	exploitation := (1-alpha)*(float64(score)/float64(plays)) + alpha*(heuristic/plays)
+	exploitation := (1-alpha)*(score/plays) + alpha*heuristic
 	//exploitation := score / plays
-	exploration := explorationConstant * math.Sqrt(math.Log(numParentSims)/float64(plays))
+	exploration := explorationConstant * math.Sqrt(math.Log(numParentSims)/plays)
 
 	return exploitation + exploration
 }
 
 func calculateNodeHeuristic(node *Node, id fastGame.SnakeId) float64 {
 	//closestFoodPath := FindNearestFood(node.Board, node.Ruleset, snake)
-	health := float64(node.board.Healths[id])
+	//health := float64(node.board.Healths[id])
 
 	////foodScore := float64(1/len(closestFoodPath) + 1)
 	////lengthScore := float64(len(snake.Body))
 
-	////numOtherSnakes := 1
-	////for _, s := range node.Board.Snakes {
-	////if s.ID != snake.ID {
-	////numOtherSnakes += 1
-	////}
-	////}
 	////otherSnakeScore := float64(1 / numOtherSnakes)
 	//a := 60.0
 	//b := 8.0
 	//foodDistance := float64(len(closestFoodPath))
 	//foodScore := a * math.Atan(health-foodDistance/b)
 	if !node.board.IsSnakeAlive(id) {
-		return -math.MaxFloat64
+		return -1.0
 	}
 
 	//var otherSnakes []fastGame.SnakeId
-	otherSnakes := 0
-	total := 0
-	for sId, health := range node.board.Healths {
-		if sId != id && health > 0 {
-			otherSnakes += 1
-		}
-	}
-	snakeScore := 10 / (otherSnakes + 1)
-	healthScore := float64(health / 100)
-	lengthScore := 1 * node.board.Lengths[id]
+	//otherSnakes := 0
+	//for sId, health := range node.board.Healths {
+	//if sId != id && health > 0 {
+	//otherSnakes += 1
+	//}
+	//}
+	//snakeScore := 1 / (otherSnakes + 1)
+	//healthScore := 0.01 * float64(health/100)
+	//lengthScore := 0.1 * float64(node.board.Lengths[id])
+	voronoi := 0.01 * float64(fastGame.Voronoi(node.board, id))
+	total := voronoi
 
-	return float64(total) + float64(snakeScore) + healthScore + float64(lengthScore)
+	return 1 / (1 + math.Pow(math.E, -total))
 }
