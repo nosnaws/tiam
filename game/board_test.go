@@ -1424,7 +1424,7 @@ func TestSnakeEating(t *testing.T) {
 	moves := board.GetMovesForSnake(id)
 
 	if len(moves) != 2 {
-		dirIndex := indexInDirection(Up, board.Heads[id], 5, 5, true)
+		dirIndex := IndexInDirection(Up, board.Heads[id], 5, 5, true)
 		fmt.Println(board.list[dirIndex].IsDoubleStack())
 		fmt.Println(moves)
 		panic("Should not go up!")

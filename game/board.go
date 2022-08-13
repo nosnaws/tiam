@@ -311,6 +311,7 @@ func (b *FastBoard) kill(id SnakeId) {
 }
 
 func (b *FastBoard) RandomRollout() {
+	//turn := 0
 	moves := make(map[SnakeId]Move, len(b.Lengths))
 	for !b.IsGameOver() {
 		//moves := make([]SnakeMove, 0, len(b.Lengths))
@@ -326,17 +327,27 @@ func (b *FastBoard) RandomRollout() {
 			//moves = append(moves, randomMove)
 			moves[id] = randomMove.Dir
 		}
+		//turn += 1
 		b.AdvanceBoard(moves)
 	}
 }
 
 func (b *FastBoard) GetMovesForSnake(id SnakeId) []SnakeMove {
-	//var possibleMoves []SnakeMove
-	possibleMoves := make([]SnakeMove, 0, 4)
+	var possibleMoves []SnakeMove
 	snakeHeadIndex := b.Heads[id]
 
+	moves := b.GetNeighbors(snakeHeadIndex)
+	for _, m := range moves {
+		possibleMoves = append(possibleMoves, SnakeMove{Id: id, Dir: m})
+	}
+	return possibleMoves
+}
+
+func (b *FastBoard) GetNeighbors(index uint16) []Move {
+	possibleMoves := make([]Move, 0, 4)
+
 	for _, dir := range allMoves {
-		dirPoint := b.pointInDirection(dir, snakeHeadIndex)
+		dirPoint := b.pointInDirection(dir, index)
 		isOutOfBounds := b.isOffBoard(dirPoint)
 		if isOutOfBounds {
 			continue
@@ -351,12 +362,12 @@ func (b *FastBoard) GetMovesForSnake(id SnakeId) []SnakeMove {
 			continue
 		}
 
-		possibleMoves = append(possibleMoves, SnakeMove{Id: id, Dir: dir})
+		possibleMoves = append(possibleMoves, dir)
 	}
 
 	// No moves, go left
 	if len(possibleMoves) == 0 {
-		possibleMoves = append(possibleMoves, SnakeMove{Id: id, Dir: Left})
+		possibleMoves = append(possibleMoves, Left)
 	}
 
 	return possibleMoves

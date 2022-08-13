@@ -35,7 +35,7 @@ func pointInDirection(m Move, cur uint16, width, height uint16, isWrapped bool) 
 	return p
 }
 
-func indexInDirection(m Move, cur uint16, width, height uint16, isWrapped bool) uint16 {
+func IndexInDirection(m Move, cur uint16, width, height uint16, isWrapped bool) uint16 {
 	p := pointInDirection(m, cur, width, height, isWrapped)
 	return pointToIndex(p, width)
 }
