@@ -24,7 +24,7 @@ func info() fastGame.BattlesnakeInfoResponse {
 	return fastGame.BattlesnakeInfoResponse{
 		APIVersion: "1",
 		Author:     "nosnaws",       // TODO: Your Battlesnake username
-		Color:      "#002080",       // TODO: Personalize
+		Color:      "#000000",       // TODO: Personalize
 		Head:       "alligator",     // TODO: Personalize
 		Tail:       "cosmic-horror", // TODO: Personalize
 	}
@@ -46,11 +46,11 @@ func end(state fastGame.GameState) {
 // This function is called on every turn of a game. Use the provided GameState to decide
 // where to move -- valid moves are "up", "down", "left", or "right".
 // We've provided some code and comments to get you started.
-func move(state fastGame.GameState, txn *newrelic.Transaction) fastGame.BattlesnakeMoveResponse {
+func move(state fastGame.GameState, config *brain.MCTSConfig, txn *newrelic.Transaction) fastGame.BattlesnakeMoveResponse {
 	log.Println("START TURN: ", state.Turn)
 	gameBoard := fastGame.BuildBoard(state)
 
-	move := brain.MCTS(&gameBoard, txn)
+	move := brain.MCTS(&gameBoard, config, txn)
 
 	log.Println("RETURNING TURN: ", state.Turn)
 	if move.Dir == fastGame.Left {

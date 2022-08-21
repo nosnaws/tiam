@@ -10,7 +10,9 @@ import (
 	"strconv"
 
 	"github.com/newrelic/go-agent/v3/newrelic"
+	"github.com/nosnaws/tiam/brain"
 	fastGame "github.com/nosnaws/tiam/game"
+	instru "github.com/nosnaws/tiam/instrumentation"
 )
 
 const ServerID = "nosnaws/tiam"
@@ -51,7 +53,7 @@ func HandleStart(app *newrelic.Application) http.HandlerFunc {
 	}
 }
 
-func HandleMove(app *newrelic.Application) http.HandlerFunc {
+func HandleMove(app *newrelic.Application, config *brain.MCTSConfig) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		state := fastGame.GameState{}
 		err := json.NewDecoder(r.Body).Decode(&state)
@@ -66,7 +68,7 @@ func HandleMove(app *newrelic.Application) http.HandlerFunc {
 		//recordLatency(app, state)
 		txn.AddAttribute("lastTurnLatency", state.You.Latency)
 
-		response := move(state, txn)
+		response := move(state, config, txn)
 
 		w.Header().Set("Content-Type", "application/json")
 		err = json.NewEncoder(w).Encode(response)
@@ -88,7 +90,7 @@ func HandleEnd(app *newrelic.Application) http.HandlerFunc {
 		}
 
 		txn := newrelic.FromContext(r.Context())
-		getCustomAttributesEnd(txn, state)
+		instru.GetCustomAttributesEnd(txn, state)
 		txn.AddAttribute("lastTurnLatency", state.You.Latency)
 
 		recordLatency(app, state)
@@ -108,6 +110,37 @@ func withServerID(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+func parseEnv() *brain.MCTSConfig {
+	exploration, err := strconv.ParseFloat(os.Getenv("EXPLORATION_CONSTANT"), 64)
+	if err != nil {
+		log.Println("EXPLORATION_CONSTANT not set, defaulting")
+		exploration = 2.0
+	}
+	alpha, err := strconv.ParseFloat(os.Getenv("ALPHA_CONSTANT"), 64)
+	if err != nil {
+		log.Println("ALPHA_CONSTANT not set, defaulting")
+		alpha = 0.1
+	}
+	voronoi, err := strconv.ParseFloat(os.Getenv("VORONOI_CONSTANT"), 64)
+	if err != nil {
+		log.Println("VORONOI_CONSTANT not set, defaulting")
+		voronoi = 0.5
+	}
+	food, err := strconv.ParseFloat(os.Getenv("FOOD_CONSTANT"), 64)
+	if err != nil {
+		log.Println("FOOD_CONSTANT not set, defaulting")
+		food = 0.1
+	}
+
+	return &brain.MCTSConfig{
+		ExplorationConstant: exploration,
+		AlphaConstant:       alpha,
+		VoronoiWeighting:    voronoi,
+		FoodWeighting:       food,
+	}
+
+}
+
 // Main Entrypoint
 
 func main() {
@@ -125,9 +158,11 @@ func main() {
 		newrelic.ConfigLicense(nrLicenseKey),
 	)
 
+	config := parseEnv()
+
 	http.HandleFunc(newrelic.WrapHandleFunc(app, "/", withServerID(HandleIndex(app))))
 	http.HandleFunc(newrelic.WrapHandleFunc(app, "/start", withServerID(HandleStart(app))))
-	http.HandleFunc(newrelic.WrapHandleFunc(app, "/move", withServerID(HandleMove(app))))
+	http.HandleFunc(newrelic.WrapHandleFunc(app, "/move", withServerID(HandleMove(app, config))))
 	http.HandleFunc(newrelic.WrapHandleFunc(app, "/end", withServerID(HandleEnd(app))))
 
 	log.Printf("Starting Battlesnake Server at http://0.0.0.0:%s...\n", port)

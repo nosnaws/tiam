@@ -260,6 +260,42 @@ func TestRandomSnakeCollsionWrapped(t *testing.T) {
 	}
 }
 
+func TestGetNeighbors(t *testing.T) {
+	//t.Skip()
+	// e _ _
+	// s s _
+	// h s s
+	me := Battlesnake{
+		ID:     "me",
+		Health: 100,
+		Body:   []Coord{{X: 0, Y: 0}, {X: 1, Y: 0}, {X: 2, Y: 0}},
+	}
+	enemy := Battlesnake{
+		ID:     "enemy",
+		Health: 100,
+		Body:   []Coord{{X: 0, Y: 2}, {X: 0, Y: 1}, {X: 1, Y: 1}},
+	}
+	state := GameState{
+		Turn: 3,
+		Board: Board{
+			Snakes: []Battlesnake{me, enemy},
+			Height: 11,
+			Width:  11,
+		},
+		You: me,
+	}
+	board := BuildBoard(state)
+	//id := board.ids["me"]
+
+	moves := board.GetNeighbors(0)
+
+	if len(moves) != 0 {
+		fmt.Println(moves)
+		board.Print()
+		panic("Should not be able to move!")
+	}
+}
+
 func TestGetSnakeMoves(t *testing.T) {
 	//t.Skip()
 	// _ _ _

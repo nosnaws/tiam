@@ -1,4 +1,4 @@
-package main
+package instrumentation
 
 import (
 	b64 "encoding/base64"
@@ -60,11 +60,11 @@ func getBaseAttributes(txn *newrelic.Transaction, state fastGame.GameState) {
 	}
 }
 
-func getCustomAttributes(txn *newrelic.Transaction, state fastGame.GameState) {
+func GetCustomAttributes(txn *newrelic.Transaction, state fastGame.GameState) {
 	getBaseAttributes(txn, state)
 }
 
-func getCustomAttributesEnd(txn *newrelic.Transaction, state fastGame.GameState) {
+func GetCustomAttributesEnd(txn *newrelic.Transaction, state fastGame.GameState) {
 	getBaseAttributes(txn, state)
 	snakes := state.Board.Snakes
 

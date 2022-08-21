@@ -234,7 +234,7 @@ func (b *FastBoard) AdvanceBoard(moves map[SnakeId]Move) {
 
 		oldHeadIndex := b.Heads[id]
 		tailIndex := b.list[oldHeadIndex].GetIdx()
-		didSnakeEat := b.isTileFood(newIndex)
+		didSnakeEat := b.IsTileFood(newIndex)
 
 		oldHeadTile := b.list[oldHeadIndex]
 		tailTile := b.list[tailIndex]
@@ -340,6 +340,10 @@ func (b *FastBoard) GetMovesForSnake(id SnakeId) []SnakeMove {
 	for _, m := range moves {
 		possibleMoves = append(possibleMoves, SnakeMove{Id: id, Dir: m})
 	}
+	// No moves, go left
+	if len(possibleMoves) == 0 {
+		possibleMoves = append(possibleMoves, SnakeMove{Id: id, Dir: Left})
+	}
 	return possibleMoves
 }
 
@@ -363,11 +367,6 @@ func (b *FastBoard) GetNeighbors(index uint16) []Move {
 		}
 
 		possibleMoves = append(possibleMoves, dir)
-	}
-
-	// No moves, go left
-	if len(possibleMoves) == 0 {
-		possibleMoves = append(possibleMoves, Left)
 	}
 
 	return possibleMoves
@@ -407,7 +406,7 @@ func (b *FastBoard) isTileHazard(index uint16) bool {
 	return b.list[index].IsHazard()
 }
 
-func (b *FastBoard) isTileFood(index uint16) bool {
+func (b *FastBoard) IsTileFood(index uint16) bool {
 	return b.list[index].IsFood()
 }
 
@@ -523,10 +522,10 @@ func (b *FastBoard) tileToString(index uint16) string {
 	if b.isTileSnakeSegment(index) {
 		return fmt.Sprintf(" %ds ", b.list[index].id)
 	}
-	if b.isTileFood(index) && b.isTileHazard(index) {
+	if b.IsTileFood(index) && b.isTileHazard(index) {
 		return " fz "
 	}
-	if b.isTileFood(index) {
+	if b.IsTileFood(index) {
 		return " ff "
 	}
 	if b.isTileHazard(index) {
