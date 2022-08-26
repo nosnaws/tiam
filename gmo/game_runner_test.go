@@ -6,7 +6,7 @@ import (
 )
 
 func TestCreateGameRunCommand(t *testing.T) {
-	//t.Skip()
+	t.Skip()
 	g := game{
 		mapName: "standard",
 		width:   11,

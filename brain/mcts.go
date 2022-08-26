@@ -61,7 +61,7 @@ func MCTS(board *fastGame.FastBoard, config *MCTSConfig, txn *newrelic.Transacti
 	root := createNode(fakeMoveSet, board)
 	root.children = createChildren(root)
 
-	duration, err := time.ParseDuration("100ms")
+	duration, err := time.ParseDuration("350ms")
 	if err != nil {
 		panic("could not parse duration")
 	}
@@ -421,22 +421,22 @@ func calculateNodeHeuristic(node *Node, id fastGame.SnakeId, config *MCTSConfig)
 		return -1.0
 	}
 
-	isLargestSnake := true
-	for sId, l := range node.board.Lengths {
-		if sId != id && l >= node.board.Lengths[id] {
-			isLargestSnake = false
-		}
-	}
+	//isLargestSnake := true
+	//for sId, l := range node.board.Lengths {
+	//if sId != id && l >= node.board.Lengths[id] {
+	//isLargestSnake = false
+	//}
+	//}
 
 	voronoi := fastGame.Voronoi(node.board, id)
 
 	total := 0.0
-	if isLargestSnake {
-		total += config.BigSnakeReward
-	}
+	//if isLargestSnake {
+	//total += config.BigSnakeReward
+	//}
 
-	total += config.FoodWeightA + math.Atan((health-float64(voronoi.FoodDepth))/config.FoodWeightB)
+	total += config.FoodWeightA * ((health - float64(voronoi.FoodDepth)) / config.FoodWeightB)
 	total += config.VoronoiWeighting * float64(voronoi.Score)
 
-	return total / math.Sqrt(10+math.Pow(total, 2))
+	return total / math.Sqrt(100+math.Pow(total, 2))
 }

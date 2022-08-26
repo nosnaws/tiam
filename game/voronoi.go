@@ -1,7 +1,5 @@
 package game
 
-import "fmt"
-
 type pair struct {
 	id    SnakeId
 	index uint16
@@ -113,6 +111,5 @@ func Voronoi(game *FastBoard, player SnakeId) voronoiResult {
 		}
 	}
 
-	fmt.Println("voronoi", scores, foodDepth)
 	return voronoiResult{Score: scores[player], FoodDepth: foodDepth}
 }

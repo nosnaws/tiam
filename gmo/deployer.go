@@ -29,15 +29,19 @@ type snakeContainer struct {
 	port          string
 }
 
-func createDeployment() *deployment {
+func createDeployment(starterPort int) *deployment {
 	cli, err := client.NewClientWithOpts(client.FromEnv, client.WithAPIVersionNegotiation())
 	if err != nil {
 		log.Fatal(err)
 	}
 
+	if starterPort == 0 {
+		starterPort = 8081
+	}
+
 	deployment := &deployment{
 		cli:         cli,
-		defaultPort: 8081,
+		defaultPort: starterPort,
 		containers:  make(map[string]snakeContainer),
 	}
 

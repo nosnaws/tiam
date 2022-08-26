@@ -1,53 +1,82 @@
 package gmo
 
 import (
+	"context"
+	"fmt"
 	"testing"
 )
 
 func TestDeployDockerContainers(t *testing.T) {
-	t.Skip()
-	//headers := []string{}
-	//d := createDeployment()
-	//d.addContainer("cooky-turtle", "tiam", headers)
-	//d.addContainer("burly-toad", "tiam", headers)
-	//d.addContainer("rough-dog", "tiam", headers)
-	//d.addContainer("smooth-salamander", "tiam", headers)
+	//t.Skip()
 
-	//isSuccess := d.run()
-	//if !isSuccess {
-	//panic("Did not deploy successfully")
-	//}
+	//exploration := fmt.Sprintf("EXPLORATION_CONSTANT=%f", g[0])
+	//alpha := fmt.Sprintf("ALPHA_CONSTANT=%f", g[1])
+	//voronoi := fmt.Sprintf("VORONOI_CONSTANT=%f", g[2])
+	//foodA := fmt.Sprintf("FOOD_CONSTANT_A=%f", g[3])
+	//foodB := fmt.Sprintf("FOOD_CONSTANT_B=%f", g[3])
+	//biggest := fmt.Sprintf("BIG_SNAKE_CONSTANT=%f", g[3])
 
-	//g := game{
-	//mapName: "standard",
-	//width:   11,
-	//height:  11,
-	//cliExe:  "../../rules/battlesnake",
-	//players: []player{
-	//{
-	//name: "cooky-turtle",
-	//url:  "http://localhost:8081",
-	//},
-	//{
-	//name: "burly-toad",
-	//url:  "http://localhost:8082",
-	//},
-	//{
-	//name: "rough-dog",
-	//url:  "http://localhost:8083",
-	//},
-	//{
-	//name: "smooth-salamander",
-	//url:  "http://localhost:8084",
-	//},
-	//},
-	//}
+	// specially-devoted-javelin
+	headers := []string{
+		"EXPLORATION_CONSTANT=2.170880",
+		"ALPHA_CONSTANT=0.531146",
+		"VORONOI_CONSTANT=1.000000",
+		"FOOD_CONSTANT_A=1.827048",
+		"FOOD_CONSTANT_B=14.860363",
+		"BIG_SNAKE_CONSTANT=16.095620",
+	}
 
-	//out := runGame(g)
-	//fmt.Println(out)
-	//fmt.Println("FINISHED GAME")
+	d := createDeployment(9090)
+	d.addContainer("tiam-mini", "mini", headers)
+	d.addContainer("tiam-main", "tiam-main", []string{})
+	d.addContainer("random-test", "random", []string{})
+	d.addContainer("eater-test", "eater", []string{})
 
-	//time.Sleep(5 * time.Second)
+	ctx := context.Background()
+	isSuccess := d.run(ctx)
+	if !isSuccess {
+		panic("Did not deploy successfully")
+	}
+	defer d.stopAndRemoveContainers(ctx)
 
-	//d.stopAndRemoveContainers()
+	g := game{
+		mapName: "standard",
+		width:   11,
+		height:  11,
+		cliExe:  "../../rules/battlesnake",
+		players: []player{
+			{
+				name: "tiam-gmo",
+				url:  "http://localhost:9090",
+			},
+			{
+				name: "taim-main",
+				url:  "http://localhost:9091",
+			},
+			{
+				name: "random-test",
+				url:  "http://localhost:9092",
+			},
+			{
+				name: "eater-test",
+				url:  "http://localhost:9093",
+			},
+		},
+	}
+
+	scores := make(map[string]int)
+
+	for i := 0; i < 2; i++ {
+		out := runGame(g, true)
+		fmt.Println(out)
+
+		if out != "" {
+			scores[out] += 1
+		}
+
+		fmt.Println("FINISHED GAME")
+	}
+
+	fmt.Println(scores)
+
 }

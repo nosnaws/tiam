@@ -6,6 +6,7 @@ import (
 	"log"
 	"math/rand"
 	"sort"
+	"sync"
 	"time"
 )
 
@@ -75,20 +76,19 @@ func (u *unnaturalSelection) Evolve(ctx context.Context) {
 
 	for i := 0; i < u.numGenerations; i++ {
 		fmt.Println("Running generation ", i)
-		best, parents, scores := u.selection(ctx)
+		best, scores := u.selection(ctx)
 
-		writeCSV(i+1, u.currentPop, scores)
+		writeCSV(i, u.currentPop, scores)
 		if i == u.numGenerations-1 {
 			overAllBest = best
 			break
 		}
 
-		fmt.Println("Selected parent pool ", parents)
 		fmt.Println("Adding best candidate to next gen ", best)
 		nextgen := []canditate{best}
 
 		for len(nextgen) < u.populationSize {
-			pair := u.rouleteWheelSelection(parents, scores, 2)
+			pair := u.rouleteWheelSelection(u.currentPop, scores, 2)
 			fmt.Println("Selected parents for breeding ", pair)
 
 			newPair := u.crossover(pair[0], pair[1])
@@ -124,12 +124,12 @@ func (u *unnaturalSelection) initializePopulation() []canditate {
 		cand := canditate{
 			name: genRandomName(),
 			geno: []float64{
-				rand.Float64() * float64(rand.Intn(5)),  // Exploration
-				rand.Float64(),                          // alpha
-				rand.Float64(),                          // voronoi
-				rand.Float64(),                          // food a
-				rand.Float64(),                          // food b
-				rand.Float64() * float64(rand.Intn(10)), // big snake reward
+				rand.Float64() * float64(rand.Intn(100)), // Exploration
+				rand.Float64(),                           // alpha
+				rand.Float64() * float64(rand.Intn(10)),  // voronoi
+				rand.Float64() * float64(rand.Intn(100)), // food a
+				rand.Float64() * float64(rand.Intn(100)), // food b
+				rand.Float64() * float64(rand.Intn(100)), // big snake reward
 			},
 			imageName: "tiam",
 		}
@@ -139,13 +139,13 @@ func (u *unnaturalSelection) initializePopulation() []canditate {
 	return pop
 }
 
-func (u *unnaturalSelection) selection(ctx context.Context) (canditate, []canditate, map[string]int) {
+func (u *unnaturalSelection) selection(ctx context.Context) (canditate, map[string]int) {
 
 	// Get the fitness of the population
 	candidateSets := createGroups(u.currentPop)
 	scores := make(map[string]int)
-	for _, candidateSet := range candidateSets {
-		fmt.Println("running group ", candidateSet)
+	for i, candidateSet := range candidateSets {
+		fmt.Println("running group ", i, candidateSet)
 		results := u.fitness(ctx, candidateSet)
 
 		scores[candidateSet[0].name] = results[0]
@@ -159,11 +159,8 @@ func (u *unnaturalSelection) selection(ctx context.Context) (canditate, []candit
 			best = c
 		}
 	}
-	// Select for reproduction
 
-	selected := u.rouleteWheelSelection(u.currentPop, scores, u.numParents)
-
-	return best, selected, scores
+	return best, scores
 }
 
 func (u *unnaturalSelection) rouleteWheelSelection(parents []canditate, scores map[string]int, n int) []canditate {
@@ -205,7 +202,7 @@ func (u *unnaturalSelection) rouleteWheelSelection(parents []canditate, scores m
 func (u *unnaturalSelection) fitness(ctx context.Context, candidates []canditate) [2]int {
 	can1 := candidates[0]
 	can2 := candidates[1]
-	deployment := createDeployment()
+	deployment := createDeployment(8080)
 
 	// add candidates to deployment
 	deployment.addContainer(can1.name, can1.imageName, genotypeToEnvVariables(can1.geno))
@@ -248,18 +245,30 @@ func (u *unnaturalSelection) fitness(ctx context.Context, candidates []canditate
 		width:   11,
 	}
 
+	var wg sync.WaitGroup
+
 	// run the games
 	scores := [2]int{}
+	var mutex = &sync.RWMutex{}
 	for i := 0; i < u.roundLength; i++ {
-		fmt.Println("Running game ", i)
-		result := runGame(game, true)
+		fmt.Println("Starting game ", i)
+		wg.Add(1)
+		go func() {
+			defer wg.Done()
+			result := runGame(game, false)
 
-		if result == player1.name {
-			scores[0] += 1
-		} else if result == player2.name {
-			scores[1] += 1
-		}
+			mutex.Lock()
+			if result == player1.name {
+				scores[0] += 1
+			} else if result == player2.name {
+				scores[1] += 1
+			}
+			mutex.Unlock()
+		}()
 	}
+
+	wg.Wait()
+	fmt.Println("Finished group")
 
 	return scores
 }
