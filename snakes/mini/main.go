@@ -1,11 +1,16 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"log"
 	"net/http"
+	_ "net/http"
+	_ "net/http/pprof"
 	"os"
 	"runtime"
+	"runtime/pprof"
+	"time"
 
 	"strconv"
 
@@ -49,8 +54,16 @@ func HandleStart(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleMove(w http.ResponseWriter, r *http.Request) {
+	duration, err := time.ParseDuration("350ms")
+	if err != nil {
+		panic("could not parse duration")
+	}
+
+	ctx, cancel := context.WithTimeout(r.Context(), duration)
+	defer cancel()
+
 	state := fastGame.GameState{}
-	err := json.NewDecoder(r.Body).Decode(&state)
+	err = json.NewDecoder(r.Body).Decode(&state)
 	if err != nil {
 		log.Printf("ERROR: Failed to decode move json, %s", err)
 		return
@@ -62,7 +75,7 @@ func HandleMove(w http.ResponseWriter, r *http.Request) {
 	//recordLatency(app, state)
 	txn.AddAttribute("lastTurnLatency", state.You.Latency)
 
-	response := move(state)
+	response := move(ctx, state)
 
 	w.Header().Set("Content-Type", "application/json")
 	err = json.NewEncoder(w).Encode(response)
@@ -98,6 +111,38 @@ func withServerID(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
+func logRequest(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		start := time.Now()
+		next(w, r)
+		log.Printf("%s %s %s", r.Method, r.URL.Path, time.Since(start))
+	}
+}
+
+// get the count of number of go routines in the system.
+func countGoRoutines() int {
+	return runtime.NumGoroutine()
+}
+
+func getGoroutines(next http.HandlerFunc) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		// Get the count of number of go routines running.
+		next(w, r)
+		count := countGoRoutines()
+		log.Printf("NUM GOROUTINES %d", count)
+	}
+}
+
+func HandleGoRoutines(w http.ResponseWriter, r *http.Request) {
+	pprof.Lookup("goroutine").WriteTo(os.Stdout, 1)
+}
+
+func HandleNumGoRoutines(w http.ResponseWriter, r *http.Request) {
+	// Get the count of number of go routines running.
+	count := countGoRoutines()
+	log.Printf("NUM GOROUTINES %d", count)
+}
+
 // Main Entrypoint
 
 func main() {
@@ -111,8 +156,9 @@ func main() {
 
 	http.HandleFunc("/", withServerID(HandleIndex))
 	http.HandleFunc("/start", withServerID(HandleStart))
-	http.HandleFunc("/move", withServerID(HandleMove))
+	http.HandleFunc("/move", getGoroutines(logRequest(withServerID((HandleMove)))))
 	http.HandleFunc("/end", withServerID(HandleEnd))
+	http.HandleFunc("/routines", withServerID(HandleNumGoRoutines))
 
 	log.Printf("Starting Battlesnake Server at http://0.0.0.0:%s...\n", port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))

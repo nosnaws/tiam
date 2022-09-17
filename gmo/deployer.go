@@ -56,7 +56,7 @@ func (d *deployment) run(ctx context.Context) bool {
 	d.startContainers(ctx)
 
 	// Health check
-	isSuccess := d.runHealthCheck()
+	isSuccess := d.runHealthChecks()
 
 	if !isSuccess {
 		d.stopAndRemoveContainers(ctx)
@@ -65,25 +65,39 @@ func (d *deployment) run(ctx context.Context) bool {
 	return isSuccess
 }
 
-func (d *deployment) runHealthCheck() bool {
-	time.Sleep(5 * time.Second)
-	for name, con := range d.containers {
+func (d *deployment) runHealthChecks() bool {
+	for _, con := range d.containers {
 		url := fmt.Sprintf("http://localhost:%s", con.port)
 
-		log.Println("RUNNING HEALTH CHECK", name, url)
+		ready := runHealthCheck(url)
+		if !ready {
+			return false
+		}
+	}
+
+	return true
+}
+
+func runHealthCheck(url string) bool {
+	passed := false
+	for i := 0; i < 5; i++ {
+		log.Println("RUNNING HEALTH CHECK", url)
 		res, err := http.Get(url)
 		if err != nil {
 			log.Println(err)
-			return false
 		}
-
-		if res.StatusCode != 200 {
-			log.Println("Container did not respond with 200 during health check", name, con.imageName, con.port)
-			return false
-		}
-		log.Println("SUCCESS")
 
 		res.Body.Close()
+		if res.StatusCode == 200 {
+			passed = true
+			break
+		}
+		time.Sleep(time.Second)
+	}
+
+	if !passed {
+		log.Println("Container did not respond with 200 during health check", url)
+		return false
 	}
 
 	return true

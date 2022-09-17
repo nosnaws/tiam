@@ -61,8 +61,8 @@ func determineMove(state g.GameState) g.Move {
 
 		movesScore = append(movesScore, moveAndScore{
 			move:         move.Dir,
-			voronoiScore: int(s.Score),
-			foodScore:    s.FoodDepth,
+			voronoiScore: int(s.Score[g.MeId]),
+			foodScore:    s.FoodDepth[g.MeId],
 		})
 	}
 

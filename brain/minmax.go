@@ -1,7 +1,9 @@
 package brain
 
 import (
+	"fmt"
 	"math"
+	"time"
 
 	g "github.com/nosnaws/tiam/game"
 )
@@ -11,87 +13,140 @@ type mmNode struct {
 	Move  g.Move
 }
 
-func Minmax(board *g.FastBoard, move g.Move, depth int, alpha, beta float64, maxPlayer bool) mmNode {
+func Minmax(board *g.FastBoard, id g.SnakeId, depth int) g.Move {
+	result := minmax(board, g.Left, id, depth, math.Inf(-1), math.Inf(1), true)
+
+	return result.Move
+}
+
+func IdfsMinmax(b *g.FastBoard) g.Move {
+	initial := Minmax(b, g.MeId, 2)
+
+	duration, err := time.ParseDuration("150ms")
+	if err != nil {
+		panic("could not parse duration")
+	}
+
+	// create MAST table
+	//mast := initMAST(*root.board)
+
+	now := time.Now()
+	currentDepth := 2
+	bestMove := initial
+miniloop:
+	for timeout := time.After(duration); ; {
+		select {
+		case <-timeout:
+			break miniloop
+		default:
+			currentDepth += 2
+			fmt.Println("Running depth", currentDepth)
+			bestMove = Minmax(b, g.MeId, currentDepth)
+			fmt.Println("total time", time.Now().UnixMilli()-now.UnixMilli())
+			fmt.Println("current best move", bestMove)
+		}
+	}
+
+	fmt.Println("final time", time.Now().UnixMilli()-now.UnixMilli())
+
+	fmt.Println("final move", bestMove)
+	return bestMove
+}
+
+func minmax(board *g.FastBoard, move g.Move, id g.SnakeId, depth int, alpha, beta float64, maxPlayer bool) mmNode {
 	if depth == 0 || board.IsGameOver() {
 		return mmNode{
-			Score: minmaxHeuristic(board, g.MeId),
+			Score: minmaxHeuristic(board, id),
 			Move:  move,
 		}
 	}
 
 	if maxPlayer {
-		value := -math.MaxFloat64
+		value := math.Inf(-1)
 		curMove := move
 
-		for _, m := range board.GetMovesForSnake(g.MeId) {
-			ns := board.Clone()
-			move := make(map[g.SnakeId]g.Move)
-			move[g.MeId] = m.Dir
-			ns.AdvanceBoardTurnBased(move)
+		for _, m := range board.GetMovesForSnake(id) {
+			//ns := board.Clone()
+			//move := make(map[g.SnakeId]g.Move)
+			//move[id] = m.Dir
+			//ns.AdvanceBoardTurnBased(move)
 
-			result := Minmax(&ns, m.Dir, depth-1, alpha, beta, false)
+			min := minmax(board, m.Dir, id, depth-1, alpha, beta, false)
 
-			if result.Score > value {
-				value = result.Score
-				curMove = result.Move
+			if min.Score > value {
+				value = min.Score
+				curMove = m.Dir
 			}
 
 			if value >= beta {
 				break
 			}
+
+			if value > alpha {
+				alpha = value
+			}
 		}
 		return mmNode{Score: value, Move: curMove}
 
 	} else {
-		value := math.MaxFloat64
+		value := math.Inf(1)
 
-		otherSnakes := getOtherSnakeIds(board)
+		otherSnakes := getOtherSnakeIds(board, id)
 
-		movesTemp := [][]g.SnakeMove{}
-		for _, id := range otherSnakes {
-			moves := board.GetMovesForSnake(id)
+		myMove := []g.SnakeMove{{Id: id, Dir: move}}
+		movesTemp := [][]g.SnakeMove{myMove}
+		for _, oId := range otherSnakes {
+			moves := board.GetMovesForSnake(oId)
 
-			if len(movesTemp) < 1 {
-				movesTemp = append(movesTemp, moves)
-			} else {
-				movesTemp = g.CartesianProduct(movesTemp, moves)
-			}
+			//if len(movesTemp) < 1 {
+			//movesTemp = append(movesTemp, moves)
+			//} else {
+			movesTemp = g.CartesianProduct(movesTemp, moves)
+			//}
 		}
 
 		for _, moveSet := range movesTemp {
 			moveMap := movesToMap(moveSet)
 			ns := board.Clone()
-			ns.AdvanceBoardTurnBased(moveMap)
+			ns.AdvanceBoard(moveMap)
 
-			result := Minmax(&ns, move, depth-1, alpha, beta, true)
+			max := minmax(&ns, move, id, depth-1, alpha, beta, true)
 
-			if value < result.Score {
-				value = result.Score
+			if max.Score < value {
+				value = max.Score
 			}
 
 			if value <= alpha {
 				break
+			}
+
+			if value < beta {
+				beta = value
 			}
 		}
 		return mmNode{Score: value, Move: move}
 	}
 }
 
-func getOtherSnakeIds(board *g.FastBoard) []g.SnakeId {
+func getOtherSnakeIds(board *g.FastBoard, id g.SnakeId) []g.SnakeId {
 	otherSnakes := []g.SnakeId{}
-	for id := range board.Heads {
-		if board.IsSnakeAlive(id) && id != g.MeId {
-			otherSnakes = append(otherSnakes, id)
+	for hid := range board.Heads {
+		if board.IsSnakeAlive(hid) && hid != id && hid != g.MeId {
+			otherSnakes = append(otherSnakes, hid)
 		}
 	}
 	return otherSnakes
 }
 
 func minmaxHeuristic(board *g.FastBoard, id g.SnakeId) float64 {
-	health := float64(board.Healths[id])
+	//health := float64(board.Healths[id])
+
+	if board.IsGameOver() && board.IsSnakeAlive(id) {
+		return math.MaxFloat64
+	}
 
 	if !board.IsSnakeAlive(id) {
-		return -1.0
+		return -math.MaxFloat64
 	}
 
 	//isLargestSnake := true
@@ -107,9 +162,19 @@ func minmaxHeuristic(board *g.FastBoard, id g.SnakeId) float64 {
 	//if isLargestSnake {
 	//total += config.BigSnakeReward
 	//}
+	numAlive := 0
+	for id := range board.Lengths {
+		if board.IsSnakeAlive(id) {
+			numAlive += 1
+		}
+	}
 
-	total += 1.2 * ((health - float64(voronoi.FoodDepth)) / 14.5)
-	total += 1 * float64(voronoi.Score)
+	//total += health / 10
 
-	return total / math.Sqrt(100+math.Pow(total, 2))
+	total += float64(1000 / numAlive)
+	//total += float64(board.Lengths[id]) / 2
+	total += (100 / float64(voronoi.FoodDepth[id]))
+	total += 8 * float64(voronoi.Score[id])
+
+	return total // / math.Sqrt(100+math.Pow(total, 2))
 }

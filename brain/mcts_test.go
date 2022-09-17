@@ -64,7 +64,8 @@ func TestDecisionHeadToHead(t *testing.T) {
 	}
 	board := game.BuildBoard(state)
 
-	move := MCTS(&board, nil, &newrelic.Transaction{})
+	mctsG := CreateMctsGame(11, 11)
+	move := mctsG.MCTS(&board, nil, &newrelic.Transaction{})
 	if move.Dir == game.Up || move.Dir == game.Right {
 		board.Print()
 		fmt.Println("selected ", move.Dir)
@@ -117,7 +118,8 @@ func TestDecision(t *testing.T) {
 	}
 	board := game.BuildBoard(state)
 
-	move := MCTS(&board, nil, &newrelic.Transaction{})
+	mctsG := CreateMctsGame(11, 11)
+	move := mctsG.MCTS(&board, nil, &newrelic.Transaction{})
 	if move.Dir != game.Up {
 		board.Print()
 		fmt.Println("selected ", move.Dir)
@@ -160,7 +162,8 @@ func TestDecisionDraw(t *testing.T) {
 	}
 	board := game.BuildBoard(state)
 
-	move := MCTS(&board, nil, &newrelic.Transaction{})
+	mctsG := CreateMctsGame(11, 11)
+	move := mctsG.MCTS(&board, nil, &newrelic.Transaction{})
 	if move.Dir == game.Right {
 		board.Print()
 		fmt.Println("selected ", move.Dir)
@@ -236,7 +239,8 @@ func TestDecisionDoesNotSuicide(t *testing.T) {
 	}
 	board := game.BuildBoard(state)
 
-	move := MCTS(&board, nil, &newrelic.Transaction{})
+	mctsG := CreateMctsGame(11, 11)
+	move := mctsG.MCTS(&board, nil, &newrelic.Transaction{})
 	if move.Dir == game.Down {
 		board.Print()
 		fmt.Println("selected ", move.Dir)
@@ -293,11 +297,12 @@ func TestPerformance(t *testing.T) {
 	actualRuns := 0
 	maxTime := float64(0)
 	totalTime := float64(0)
+	mctsG := CreateMctsGame(11, 11)
 	for i := 0; i < totalRuns; i++ {
 		ns := board.Clone()
 
 		now := time.Now()
-		MCTS(&ns, nil, &newrelic.Transaction{})
+		mctsG.MCTS(&ns, nil, &newrelic.Transaction{})
 		after := time.Now()
 		actualRuns += 1
 
@@ -367,11 +372,12 @@ func TestPerformanceOpenPosition(t *testing.T) {
 	actualRuns := 0
 	maxTime := float64(0)
 	totalTime := float64(0)
+	mctsG := CreateMctsGame(11, 11)
 	for i := 0; i < totalRuns; i++ {
 		ns := board.Clone()
 
 		now := time.Now()
-		MCTS(&ns, nil, &newrelic.Transaction{})
+		mctsG.MCTS(&ns, nil, &newrelic.Transaction{})
 		after := time.Now()
 		actualRuns += 1
 

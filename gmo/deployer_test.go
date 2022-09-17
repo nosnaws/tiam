@@ -17,19 +17,19 @@ func TestDeployDockerContainers(t *testing.T) {
 	//biggest := fmt.Sprintf("BIG_SNAKE_CONSTANT=%f", g[3])
 
 	// specially-devoted-javelin
-	headers := []string{
-		"EXPLORATION_CONSTANT=2.170880",
-		"ALPHA_CONSTANT=0.531146",
-		"VORONOI_CONSTANT=1.000000",
-		"FOOD_CONSTANT_A=1.827048",
-		"FOOD_CONSTANT_B=14.860363",
-		"BIG_SNAKE_CONSTANT=16.095620",
-	}
+	//headers := []string{
+	//"EXPLORATION_CONSTANT=1.8",
+	//"ALPHA_CONSTANT=0.531146",
+	//"VORONOI_CONSTANT=1.000000",
+	//"FOOD_CONSTANT_A=1.827048",
+	//"FOOD_CONSTANT_B=14.860363",
+	//"BIG_SNAKE_CONSTANT=16.095620",
+	//}
 
 	d := createDeployment(9090)
-	d.addContainer("tiam-mini", "mini", headers)
+	//d.addContainer("tiam-test", "tiam", []string{})
 	d.addContainer("tiam-main", "tiam-main", []string{})
-	d.addContainer("random-test", "random", []string{})
+	//d.addContainer("mini-test", "mini", []string{})
 	d.addContainer("eater-test", "eater", []string{})
 
 	ctx := context.Background()
@@ -45,28 +45,28 @@ func TestDeployDockerContainers(t *testing.T) {
 		height:  11,
 		cliExe:  "../../rules/battlesnake",
 		players: []player{
+			//{
+			//name: "tiam-test",
+			//url:  "http://localhost:8090",
+			//},
 			{
-				name: "tiam-gmo",
+				name: "taim-main",
 				url:  "http://localhost:9090",
 			},
 			{
-				name: "taim-main",
+				name: "eater-test",
 				url:  "http://localhost:9091",
 			},
 			{
-				name: "random-test",
-				url:  "http://localhost:9092",
-			},
-			{
-				name: "eater-test",
-				url:  "http://localhost:9093",
+				name: "mini-test",
+				url:  "http://localhost:8080",
 			},
 		},
 	}
 
 	scores := make(map[string]int)
 
-	for i := 0; i < 2; i++ {
+	for i := 0; i < 1; i++ {
 		out := runGame(g, true)
 		fmt.Println(out)
 

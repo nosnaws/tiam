@@ -1,6 +1,7 @@
 package brain
 
 import (
+	"fmt"
 	"log"
 	"math"
 	"math/rand"
@@ -9,31 +10,32 @@ import (
 
 	"github.com/newrelic/go-agent/v3/newrelic"
 
-	fastGame "github.com/nosnaws/tiam/game"
+	g "github.com/nosnaws/tiam/game"
 )
 
 type Node struct {
-	board         *fastGame.FastBoard
+	board         *g.FastBoard
 	children      []*Node
 	parent        *Node
 	plays         int
-	moveSet       map[fastGame.SnakeId]fastGame.SnakeMove
-	possibleMoves map[fastGame.SnakeId][]fastGame.SnakeMove
-	payoffs       map[fastGame.SnakeId]Payoff
+	moveSet       map[g.SnakeId]g.SnakeMove
+	possibleMoves map[g.SnakeId][]g.SnakeMove
+	payoffs       map[g.SnakeId]Payoff
+	heuristics    Heuristics
 	depth         int
 }
 
 type Payoff struct {
-	plays     map[fastGame.Move]int
-	scores    map[fastGame.Move]int
-	heuristic map[fastGame.Move]float64
+	plays  map[g.Move]int
+	scores map[g.Move]int
+	//heuristic map[g.Move]float64
 }
 
 type SnakeScore struct {
-	id        fastGame.SnakeId
-	value     int
-	move      fastGame.Move
-	heuristic float64
+	id    g.SnakeId
+	value int
+	move  g.Move
+	//heuristic float64
 }
 
 type MCTSConfig struct {
@@ -45,26 +47,43 @@ type MCTSConfig struct {
 	BigSnakeReward      float64
 }
 
-func addAttributes(txn *newrelic.Transaction, root *Node, selected fastGame.SnakeMove, maxDepth int) {
-	if txn != nil {
-		txn.AddAttribute("totalPlays", root.plays)
-		txn.AddAttribute("selectedMove", selected.Dir)
-		txn.AddAttribute("maxDepth", maxDepth)
+type MASTTable struct {
+	total    int
+	moveWins map[g.Move]int
+}
+
+type cacheEntry struct {
+	plays   int
+	payoffs map[g.SnakeId]Payoff
+}
+
+type MctsGame struct {
+	tt    TranspositionTable
+	cache map[BoardHash]cacheEntry
+}
+
+func CreateMctsGame(h, w int) MctsGame {
+	return MctsGame{
+		tt:    InitializeTranspositionTable(h, w),
+		cache: make(map[BoardHash]cacheEntry),
 	}
 }
 
-func MCTS(board *fastGame.FastBoard, config *MCTSConfig, txn *newrelic.Transaction) fastGame.SnakeMove {
+func (mc *MctsGame) MCTS(board *g.FastBoard, config *MCTSConfig, txn *newrelic.Transaction) g.SnakeMove {
 	segment := txn.StartSegment("MCTS")
 	defer segment.End()
 
-	fakeMoveSet := make(map[fastGame.SnakeId]fastGame.SnakeMove)
+	fakeMoveSet := make(map[g.SnakeId]g.SnakeMove)
 	root := createNode(fakeMoveSet, board)
-	root.children = createChildren(root)
+	//root.children = mc.createChildren(root)
 
 	duration, err := time.ParseDuration("350ms")
 	if err != nil {
 		panic("could not parse duration")
 	}
+
+	// create MAST table
+	//mast := initMAST(*root.board)
 
 	maxDepth := 0
 loop:
@@ -73,17 +92,12 @@ loop:
 		case <-timeout:
 			break loop
 		default:
-			node := selectNode(root, config)
+			depth := mctsIteration(root)
 
-			child := expandNode(node)
-
-			score := simulateNode(child, config)
-			child.plays += 1
-			if maxDepth < child.depth {
-				maxDepth = child.depth
+			if maxDepth < depth {
+				maxDepth = depth
 			}
 
-			backpropagate(node, score)
 		}
 	}
 
@@ -91,7 +105,7 @@ loop:
 	//bestMove := bestMoveUTC(root, fastGame.MeId)
 	printNode(root)
 	//for _, child := range root.children {
-	//printNode(child)
+	//printNode()
 	//for _, c := range child.children {
 	//printNode(c)
 	//}
@@ -104,66 +118,137 @@ loop:
 	return bestMove
 }
 
-func selectNode(node *Node, config *MCTSConfig) *Node {
+func mctsIteration(root *Node) int {
+	// initalize the tree
+	if root.plays == 0 {
+		expandNode(root)
+		root.heuristics = getHeuristics(root)
+	}
+
+	node := selectNode(root)
+	fmt.Println("selecting node", node.moveSet)
+	fmt.Println("selecting depth", node.depth)
+	node.board.Print()
+
+	var score Rewards
+	child := getRandomUnexploredChild(node)
+	fmt.Println("random child to playout ", child.moveSet)
+	if !child.board.IsGameOver() {
+		fmt.Println("game is not over, expanding")
+
+		expandNode(child)
+		child.heuristics = getHeuristics(child)
+
+		score = simulateNode(child)
+		fmt.Println("playout result", score)
+		//node.plays += 1
+		//updateMAST(mast, score)
+
+	} else {
+		score = getRewards(child, child.board)
+		fmt.Println("game is over, getting rewards", score)
+	}
+
+	backpropagate(node, score)
+
+	return node.depth
+}
+
+type Rewards map[g.SnakeId]SnakeScore
+type Heuristics map[g.SnakeId]float64
+
+func getRewards(node *Node, playedOutBoard *g.FastBoard) Rewards {
+	rewards := make(Rewards)
+
+	for id := range playedOutBoard.Heads {
+		val := 0
+
+		if playedOutBoard.IsSnakeAlive(id) {
+			val = 1
+		}
+
+		rewards[id] = SnakeScore{
+			id:    id,
+			value: val,
+			move:  node.moveSet[id].Dir,
+		}
+	}
+
+	return rewards
+}
+
+func getHeuristics(node *Node) Heuristics {
+	maxH := make(Heuristics)
+	for id := range node.board.Heads {
+		maxH[id] = 0
+	}
+
+	for _, child := range node.children {
+		bh := calculateBoardHeuristic(*child.board)
+
+		for id, h := range maxH {
+			h = math.Max(h, bh[id])
+			maxH[id] = h
+		}
+	}
+
+	return maxH
+}
+
+func selectNode(node *Node) *Node {
+	fmt.Println("looking node depth", node.depth)
+	fmt.Println("looking node rewards", node.payoffs)
+	fmt.Println("looking node heuristic", node.heuristics)
 	if isLeafNode(node) {
 		return node
 	}
 
-	return selectNode(bestUTC(node, config), config)
+	return selectNode(bestUTC(node))
 }
 
-func printNode(node *Node) {
-	log.Println("#############")
-	node.board.Print()
-	log.Println("Depth", node.depth)
-	log.Println("Total plays", node.plays)
-
-	for id, payoff := range node.payoffs {
-		log.Println("Player", id)
-		log.Println("Health", node.board.Healths[id])
-		log.Println("Length", node.board.Lengths[id])
-		log.Println("Plays", payoff.plays)
-		log.Println("Scores", payoff.scores)
-		log.Println("Heuristics", payoff.heuristic)
+func isLeafNode(node *Node) bool {
+	if node.plays < len(node.children) {
+		return true
 	}
 
-	for _, child := range node.children {
-		printChild(child)
-	}
+	return false
 }
 
-func printChild(node *Node) {
-	log.Printf("-- depth:%d moves: %v --", node.depth, node.moveSet)
-	log.Println("Total plays", node.plays)
-	for id, payoff := range node.payoffs {
-		log.Println("Player", id)
-		log.Println("Plays", payoff.plays)
-		log.Println("Scores", payoff.scores)
-		log.Println("Heuristics", payoff.heuristic)
-	}
+func expandNode(node *Node) {
+	node.children = createChildren(node)
 }
 
-func expandNode(node *Node) *Node {
-	if node.board.IsGameOver() {
-		return node
-	}
-
-	if len(node.children) == 0 {
-		node.children = createChildren(node)
-	}
-
-	return getRandomUnexploredChild(node)
-}
-
-func simulateNode(node *Node, config *MCTSConfig) map[fastGame.SnakeId]SnakeScore {
-
+func simulateNode(node *Node) Rewards {
 	ns := node.board.Clone()
+	ns.RandomRollout()
+	return getRewards(node, &ns)
 
 	//if ns.IsSnakeAlive(fastGame.MeId) {
-	ns.RandomRollout()
+	//ns.RandomRollout()
+	//turn := 0
+	//moves := make(map[g.SnakeId]g.Move)
+	//for !ns.IsGameOver() && turn < 10 {
+
+	//for id := range ns.Lengths {
+	//if !ns.IsSnakeAlive(id) {
+	//moves[id] = ""
+	//continue
 	//}
 
-	nodeHeuristic := calculateNodeHeuristic(node, fastGame.MeId, config)
+	////sMoves := b.GetMovesForSnake(id)
+	////randomMove := sMoves[rand.Intn(len(sMoves))]
+	////moves = append(moves, randomMove)
+	//moves[id] = selectSimMove(ns, id, mast[id])
+	//}
+	////turn += 1
+	//ns.AdvanceBoard(moves)
+	//turn += 1
+	//}
+
+	//heuristic := calculateBoardHeuristic(*node.board)
+	//}
+
+	//nodeHeuristic := calculateNodeHeuristic(node, g.MeId, config)
 
 	//isDraw := true
 	//for id := range ns.Lengths {
@@ -172,86 +257,85 @@ func simulateNode(node *Node, config *MCTSConfig) map[fastGame.SnakeId]SnakeScor
 	//}
 	//}
 
-	scores := make(map[fastGame.SnakeId]SnakeScore, len(ns.Heads))
-	for id := range ns.Lengths {
-		snakeHeuristic := nodeHeuristic
-		if id != fastGame.MeId {
-			snakeHeuristic = -snakeHeuristic
-		}
+	//scores := make(map[g.SnakeId]SnakeScore, len(ns.Heads))
+	//for id := range ns.Lengths {
+	////snakeHeuristic := nodeHeuristic
+	////if id != g.MeId {
+	////snakeHeuristic = -snakeHeuristic
+	////}
 
-		score := SnakeScore{
-			id:        id,
-			value:     0,
-			move:      node.moveSet[id].Dir,
-			heuristic: snakeHeuristic,
-		}
+	//score := SnakeScore{
+	//id:        id,
+	//value:     0,
+	//move:      node.moveSet[id].Dir,
+	//heuristic: heuristic[id],
+	//}
 
-		if ns.IsSnakeAlive(id) {
-			score.value = 1
-		}
+	//if ns.IsSnakeAlive(id) {
+	//score.value = 1
+	//}
 
-		//if isDraw {
-		//score.value = 0
-		//} else if ns.IsSnakeAlive(id) {
-		//score.value = 1
-		//} else {
-		//score.value = -1
-		//}
-		scores[id] = score
-	}
+	////if isDraw {
+	////score.value = 0
+	////} else if ns.IsSnakeAlive(id) {
+	////score.value = 1
+	////} else {
+	////score.value = -1
+	////}
+	//scores[id] = score
+	//}
 
-	return scores
+	//return scores
 }
 
-func backpropagate(node *Node, scores map[fastGame.SnakeId]SnakeScore) {
+func backpropagate(node *Node, rewards Rewards) {
 	if node == nil {
 		return
 	}
 
-	pastMovesWithScore := make(map[fastGame.SnakeId]SnakeScore)
-	node.plays += 1
+	pastMovesWithScore := make(map[g.SnakeId]SnakeScore)
 	for id := range node.board.Lengths {
 		if payoff, ok := node.payoffs[id]; ok {
-			score := scores[id]
-			payoff.plays[score.move] += 1
 
-			payoff.scores[score.move] += score.value
+			reward := rewards[id]
 
-			h := payoff.heuristic[score.move]
-			payoff.heuristic[score.move] = math.Max(score.heuristic, h)
+			payoff.plays[reward.move] += 1
+			payoff.scores[reward.move] += reward.value
+
+			//h := payoff.heuristic[reward.move]
+			//payoff.heuristic[reward.move] = math.Max(reward.heuristic, h)
 
 			node.payoffs[id] = payoff
 		}
 
 		if _, ok := node.moveSet[id]; ok {
 			val := 0
-			if _, ok := scores[id]; ok {
-				val = scores[id].value
+			if _, ok := rewards[id]; ok {
+				val = rewards[id].value
 			}
 			pastMovesWithScore[id] = SnakeScore{
-				id:        id,
-				value:     val,
-				move:      node.moveSet[id].Dir,
-				heuristic: scores[id].heuristic,
+				id:    id,
+				value: val,
+				move:  node.moveSet[id].Dir,
 			}
 		}
 	}
 
-	backpropagate(node.parent, pastMovesWithScore)
-}
+	node.plays += 1
 
-func isLeafNode(node *Node) bool {
-	if len(node.children) == 0 {
-		return true
-	}
-
-	for _, n := range node.children {
-		if n.plays < 1 {
-			return true
+	for _, child := range node.children {
+		for id, h := range child.heuristics {
+			node.heuristics[id] = math.Max(h, node.heuristics[id])
 		}
 	}
 
-	return false
+	//boardHash := HashBoard(mc.tt, *node.board)
+	//mc.cache[boardHash] = cacheEntry{
+	//plays:   node.plays,
+	//payoffs: node.payoffs,
+	//}
+
+	backpropagate(node.parent, pastMovesWithScore)
 }
 
 func getRandomUnexploredChild(node *Node) *Node {
@@ -264,18 +348,21 @@ func getRandomUnexploredChild(node *Node) *Node {
 	}
 
 	//return nil
-	return Shuffle(unexplored)[0]
+	if len(unexplored) > 0 {
+		return ShuffleNodes(unexplored)[0]
+	}
+	return nil
 }
 
 func createChildren(node *Node) []*Node {
-	productOfMoves := fastGame.GetCartesianProductOfMoves(*node.board)
+	productOfMoves := g.GetCartesianProductOfMoves(*node.board)
 
 	var children []*Node
 	for _, moveSet := range productOfMoves {
 		cs := node.board.Clone()
 		cs.AdvanceBoard(movesToMap(moveSet))
 
-		moves := make(map[fastGame.SnakeId]fastGame.SnakeMove)
+		moves := make(map[g.SnakeId]g.SnakeMove)
 		for _, m := range moveSet {
 			moves[m.Id] = m
 		}
@@ -290,23 +377,24 @@ func createChildren(node *Node) []*Node {
 	return children
 }
 
-func movesToMap(moves []fastGame.SnakeMove) map[fastGame.SnakeId]fastGame.Move {
-	m := make(map[fastGame.SnakeId]fastGame.Move, len(moves))
+func movesToMap(moves []g.SnakeMove) map[g.SnakeId]g.Move {
+	m := make(map[g.SnakeId]g.Move, len(moves))
 	for _, move := range moves {
 		m[move.Id] = move.Dir
 	}
 	return m
 }
 
-func createNode(moveSet map[fastGame.SnakeId]fastGame.SnakeMove, board *fastGame.FastBoard) *Node {
-	possibleMoves := make(map[fastGame.SnakeId][]fastGame.SnakeMove)
-	payoffs := make(map[fastGame.SnakeId]Payoff)
+func createNode(moveSet map[g.SnakeId]g.SnakeMove, board *g.FastBoard) *Node {
+	possibleMoves := make(map[g.SnakeId][]g.SnakeMove)
+	payoffs := make(map[g.SnakeId]Payoff)
 	for id := range board.Lengths {
 		if !board.IsSnakeAlive(id) {
 			continue
 		}
 		moves := board.GetMovesForSnake(id)
 		possibleMoves[id] = moves
+
 		payoffs[id] = createPayoff(moves)
 	}
 
@@ -317,23 +405,29 @@ func createNode(moveSet map[fastGame.SnakeId]fastGame.SnakeMove, board *fastGame
 		moveSet:       moveSet,
 	}
 
+	//nodeHash := HashBoard(mc.tt, *board)
+	//if cached, ok := mc.cache[nodeHash]; ok {
+	//node.plays = cached.plays
+	//node.payoffs = cached.payoffs
+	//}
+
 	return &node
 }
 
-func createPayoff(moves []fastGame.SnakeMove) Payoff {
-	plays := make(map[fastGame.Move]int, len(moves))
-	scores := make(map[fastGame.Move]int, len(moves))
-	heuristic := make(map[fastGame.Move]float64, len(moves))
+func createPayoff(moves []g.SnakeMove) Payoff {
+	plays := make(map[g.Move]int, len(moves))
+	scores := make(map[g.Move]int, len(moves))
+	//heuristic := make(map[g.Move]float64, len(moves))
 
 	for _, m := range moves {
 		plays[m.Dir] = 0
 		scores[m.Dir] = 0
-		heuristic[m.Dir] = 0
+		//heuristic[m.Dir] = 0
 	}
-	return Payoff{plays: plays, scores: scores, heuristic: heuristic}
+	return Payoff{plays: plays, scores: scores}
 }
 
-func Shuffle(nodes []*Node) []*Node {
+func ShuffleNodes(nodes []*Node) []*Node {
 	r := rand.New(rand.NewSource(time.Now().Unix()))
 	ret := make([]*Node, len(nodes))
 	perm := r.Perm(len(nodes))
@@ -343,27 +437,37 @@ func Shuffle(nodes []*Node) []*Node {
 	return ret
 }
 
-func selectFinalMove(node *Node) fastGame.SnakeMove {
-	moves := node.possibleMoves[fastGame.MeId]
+func ShuffleMoves(moves []g.SnakeMove) []g.SnakeMove {
+	r := rand.New(rand.NewSource(time.Now().Unix()))
+	ret := make([]g.SnakeMove, len(moves))
+	perm := r.Perm(len(moves))
+	for i, randIndex := range perm {
+		ret[i] = moves[randIndex]
+	}
+	return ret
+}
+
+func selectFinalMove(node *Node) g.SnakeMove {
+	moves := node.possibleMoves[g.MeId]
 	sort.Slice(moves, func(a, b int) bool {
-		return moveSecureness(node, fastGame.MeId, moves[a]) > moveSecureness(node, fastGame.MeId, moves[b])
+		return moveSecureness(node, g.MeId, moves[a]) > moveSecureness(node, g.MeId, moves[b])
 	})
 
 	return moves[0]
 }
 
-func moveSecureness(node *Node, player fastGame.SnakeId, move fastGame.SnakeMove) float64 {
+func moveSecureness(node *Node, player g.SnakeId, move g.SnakeMove) float64 {
 	//score := float64(node.payoffs[player].scores[move.Dir])
 	plays := float64(node.payoffs[player].plays[move.Dir])
 
 	return plays
 }
 
-func bestUTC(node *Node, config *MCTSConfig) *Node {
-	var moveSet []fastGame.SnakeMove
+func bestUTC(node *Node) *Node {
+	var moveSet []g.SnakeMove
 	for id := range node.board.Lengths {
 		if node.board.IsSnakeAlive(id) {
-			bestMove := bestMoveUTC(node, id, config)
+			bestMove := bestMoveUTC(node, id)
 			moveSet = append(moveSet, bestMove)
 		}
 	}
@@ -377,7 +481,7 @@ func bestUTC(node *Node, config *MCTSConfig) *Node {
 	return nil
 }
 
-func isStateEqual(a []fastGame.SnakeMove, b map[fastGame.SnakeId]fastGame.SnakeMove) bool {
+func isStateEqual(a []g.SnakeMove, b map[g.SnakeId]g.SnakeMove) bool {
 	equal := true
 	for _, m := range a {
 		if m.Dir != b[m.Id].Dir {
@@ -388,24 +492,34 @@ func isStateEqual(a []fastGame.SnakeMove, b map[fastGame.SnakeId]fastGame.SnakeM
 	return equal
 }
 
-func bestMoveUTC(node *Node, id fastGame.SnakeId, config *MCTSConfig) fastGame.SnakeMove {
+func bestMoveUTC(node *Node, id g.SnakeId) g.SnakeMove {
 	moves := node.possibleMoves[id]
+	fmt.Println("getting best move for ", id)
 	sort.Slice(moves, func(a, b int) bool {
-		return calculateUCB(node, id, moves[a].Dir, config) > calculateUCB(node, id, moves[b].Dir, config)
+		ucbA := calculateUCB(node, id, moves[a].Dir)
+		ucbB := calculateUCB(node, id, moves[b].Dir)
+		fmt.Println("comparing a", moves[a].Dir, ucbA)
+		fmt.Println("comparing b", moves[b].Dir, ucbB)
+		return ucbA > ucbB
 	})
+
+	fmt.Println("UTC ", id, moves)
 
 	return moves[0]
 }
 
-func calculateUCB(node *Node, id fastGame.SnakeId, move fastGame.Move, config *MCTSConfig) float64 {
+func calculateUCB(node *Node, id g.SnakeId, move g.Move) float64 {
 	payoff := node.payoffs[id]
-	explorationConstant := math.Sqrt(config.ExplorationConstant)
-	alpha := float64(config.AlphaConstant)
+	//explorationConstant := math.Sqrt(config.ExplorationConstant)
+	explorationConstant := math.Sqrt(2)
+
+	//alpha := float64(config.AlphaConstant)
+	alpha := 0.4
 
 	numParentSims := float64(node.plays)
 	score := float64(payoff.scores[move])
 	plays := float64(payoff.plays[move])
-	heuristic := payoff.heuristic[move]
+	heuristic := node.heuristics[id]
 
 	exploitation := (1-alpha)*(score/plays) + alpha*heuristic
 	//exploitation := score / plays
@@ -414,7 +528,7 @@ func calculateUCB(node *Node, id fastGame.SnakeId, move fastGame.Move, config *M
 	return exploitation + exploration
 }
 
-func calculateNodeHeuristic(node *Node, id fastGame.SnakeId, config *MCTSConfig) float64 {
+func calculateNodeHeuristic(node *Node, id g.SnakeId, config *MCTSConfig) float64 {
 	health := float64(node.board.Healths[id])
 
 	if !node.board.IsSnakeAlive(id) {
@@ -428,15 +542,136 @@ func calculateNodeHeuristic(node *Node, id fastGame.SnakeId, config *MCTSConfig)
 	//}
 	//}
 
-	voronoi := fastGame.Voronoi(node.board, id)
+	voronoi := g.Voronoi(node.board, id)
 
 	total := 0.0
 	//if isLargestSnake {
 	//total += config.BigSnakeReward
 	//}
 
-	total += config.FoodWeightA * ((health - float64(voronoi.FoodDepth)) / config.FoodWeightB)
-	total += config.VoronoiWeighting * float64(voronoi.Score)
+	total += config.FoodWeightA * ((health - float64(voronoi.FoodDepth[id])) / config.FoodWeightB)
+	total += config.VoronoiWeighting * float64(voronoi.Score[id])
 
 	return total / math.Sqrt(100+math.Pow(total, 2))
+}
+
+func calculateBoardHeuristic(b g.FastBoard) map[g.SnakeId]float64 {
+	scores := make(map[g.SnakeId]float64, len(b.Heads))
+
+	//scores[largestSnake] += 10
+
+	voronoi := g.Voronoi(&b, g.MeId)
+
+	for id, score := range voronoi.Score {
+		scores[id] += 1 * float64(score) / 2
+	}
+
+	for id, f := range voronoi.FoodDepth {
+		scores[id] += -float64(f)
+	}
+
+	for id, s := range scores {
+		scores[id] = s / math.Sqrt(100+math.Pow(s, 2))
+	}
+
+	for id := range b.Lengths {
+		//if id != g.MeId && !b.IsSnakeAlive(g.MeId) {
+		//scores[id] = math.MaxFloat64
+		//continue
+		//}
+		if !b.IsSnakeAlive(id) {
+			scores[id] = -math.MaxFloat64
+		} else if b.IsGameOver() {
+			scores[id] = math.MaxFloat64
+		}
+	}
+
+	return scores
+}
+
+func updateMAST(mast map[g.SnakeId]MASTTable, score map[g.SnakeId]SnakeScore) {
+	for id, s := range score {
+		sMast := mast[id]
+
+		sMast.moveWins[s.move] += s.value
+		sMast.total += 1
+		mast[id] = sMast
+	}
+}
+
+func initMAST(b g.FastBoard) map[g.SnakeId]MASTTable {
+	m := make(map[g.SnakeId]MASTTable)
+
+	for id := range b.Heads {
+		mast := m[id]
+		mast.moveWins = make(map[g.Move]int)
+		mast.moveWins[g.Left] = 0
+		mast.moveWins[g.Up] = 0
+		mast.moveWins[g.Down] = 0
+		mast.moveWins[g.Right] = 0
+		mast.total = 1
+		m[id] = mast
+	}
+
+	return m
+}
+
+func addAttributes(txn *newrelic.Transaction, root *Node, selected g.SnakeMove, maxDepth int) {
+	if txn != nil {
+		txn.AddAttribute("totalPlays", root.plays)
+		txn.AddAttribute("selectedMove", selected.Dir)
+		txn.AddAttribute("maxDepth", maxDepth)
+	}
+}
+
+func printNode(node *Node) {
+	log.Println("#############")
+	node.board.Print()
+	log.Println("Depth", node.depth)
+	log.Println("Total plays", node.plays)
+	log.Println("Heuristics", node.heuristics)
+
+	for id, payoff := range node.payoffs {
+		log.Println("Player", id)
+		log.Println("Health", node.board.Healths[id])
+		log.Println("Length", node.board.Lengths[id])
+		log.Println("Plays", payoff.plays)
+		log.Println("Scores", payoff.scores)
+	}
+
+	for _, child := range node.children {
+		printChild(child)
+	}
+}
+
+func printChild(node *Node) {
+	log.Printf("-- depth:%d moves: %v --", node.depth, node.moveSet)
+	log.Println("Total plays", node.plays)
+	log.Println("Heuristics", node.heuristics)
+	for id, payoff := range node.payoffs {
+		log.Println("Player", id)
+		log.Println("Plays", payoff.plays)
+		log.Println("Scores", payoff.scores)
+		//log.Println("Heuristics", payoff.heuristic)
+	}
+}
+
+func selectSimMove(b g.FastBoard, id g.SnakeId, mast MASTTable) g.Move {
+	totalAvg := 1
+	for _, w := range mast.moveWins {
+		totalAvg += w / mast.total
+	}
+
+	moves := ShuffleMoves(b.GetMovesForSnake(id))
+
+	r := rand.Float32()
+	if r > 0.6 {
+		return moves[0].Dir
+	}
+
+	sort.Slice(moves, func(i, j int) bool {
+		return mast.moveWins[moves[i].Dir]/totalAvg > mast.moveWins[moves[j].Dir]/totalAvg
+	})
+
+	return moves[0].Dir
 }

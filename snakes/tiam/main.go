@@ -38,25 +38,27 @@ func HandleIndex(app *newrelic.Application) http.HandlerFunc {
 	}
 }
 
-func HandleStart(app *newrelic.Application) http.HandlerFunc {
+func HandleStart(app *newrelic.Application, state map[string]brain.MctsGame) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		state := fastGame.GameState{}
-		err := json.NewDecoder(r.Body).Decode(&state)
+		gameState := fastGame.GameState{}
+		err := json.NewDecoder(r.Body).Decode(&gameState)
 		if err != nil {
 			log.Printf("ERROR: Failed to decode start json, %s", err)
 			return
 		}
 
-		start(state)
+		state[gameState.Game.ID] = brain.CreateMctsGame(gameState.Board.Height, gameState.Board.Width)
+
+		start(gameState)
 
 		// Nothing to respond with here
 	}
 }
 
-func HandleMove(app *newrelic.Application, config *brain.MCTSConfig) http.HandlerFunc {
+func HandleMove(app *newrelic.Application, config *brain.MCTSConfig, state map[string]brain.MctsGame) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		state := fastGame.GameState{}
-		err := json.NewDecoder(r.Body).Decode(&state)
+		gameState := fastGame.GameState{}
+		err := json.NewDecoder(r.Body).Decode(&gameState)
 		if err != nil {
 			log.Printf("ERROR: Failed to decode move json, %s", err)
 			return
@@ -66,9 +68,9 @@ func HandleMove(app *newrelic.Application, config *brain.MCTSConfig) http.Handle
 		//getBaseAttributes(txn, state)
 
 		//recordLatency(app, state)
-		txn.AddAttribute("lastTurnLatency", state.You.Latency)
+		txn.AddAttribute("lastTurnLatency", gameState.You.Latency)
 
-		response := move(state, config, txn)
+		response := move(gameState, config, state[gameState.Game.ID], txn)
 
 		w.Header().Set("Content-Type", "application/json")
 		err = json.NewEncoder(w).Encode(response)
@@ -79,23 +81,25 @@ func HandleMove(app *newrelic.Application, config *brain.MCTSConfig) http.Handle
 	}
 }
 
-func HandleEnd(app *newrelic.Application) http.HandlerFunc {
+func HandleEnd(app *newrelic.Application, state map[string]brain.MctsGame) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		state := fastGame.GameState{}
-		err := json.NewDecoder(r.Body).Decode(&state)
+		gameState := fastGame.GameState{}
+		err := json.NewDecoder(r.Body).Decode(&gameState)
 		if err != nil {
 			log.Printf("ERROR: Failed to decode end json, %s", err)
 			return
 		}
 
 		txn := newrelic.FromContext(r.Context())
-		instru.GetCustomAttributesEnd(txn, state)
-		txn.AddAttribute("lastTurnLatency", state.You.Latency)
+		instru.GetCustomAttributesEnd(txn, gameState)
+		txn.AddAttribute("lastTurnLatency", gameState.You.Latency)
 
-		recordLatency(app, state)
+		recordLatency(app, gameState)
 
-		end(state)
+		delete(state, gameState.Game.ID)
+
+		end(gameState)
 		// Nothing to respond with here
 	}
 
@@ -177,10 +181,12 @@ func main() {
 
 	config := parseEnv()
 
+	state := make(map[string]brain.MctsGame)
+
 	http.HandleFunc(newrelic.WrapHandleFunc(app, "/", withServerID(HandleIndex(app))))
-	http.HandleFunc(newrelic.WrapHandleFunc(app, "/start", withServerID(HandleStart(app))))
-	http.HandleFunc(newrelic.WrapHandleFunc(app, "/move", withServerID(HandleMove(app, config))))
-	http.HandleFunc(newrelic.WrapHandleFunc(app, "/end", withServerID(HandleEnd(app))))
+	http.HandleFunc(newrelic.WrapHandleFunc(app, "/start", withServerID(HandleStart(app, state))))
+	http.HandleFunc(newrelic.WrapHandleFunc(app, "/move", withServerID(HandleMove(app, config, state))))
+	http.HandleFunc(newrelic.WrapHandleFunc(app, "/end", withServerID(HandleEnd(app, state))))
 
 	log.Printf("Starting Battlesnake Server at http://0.0.0.0:%s...\n", port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))

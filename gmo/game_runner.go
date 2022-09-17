@@ -36,7 +36,7 @@ func runGame(g game, visual bool) string {
 	mapOption := createMapOption(g.mapName)
 	mapHeightOption := createMapHeightOption(g.height)
 	mapWidthOption := createMapWidthOption(g.width)
-	playOptions := []string{"play", mapHeightOption, mapWidthOption, mapOption, "-t=10000"}
+	playOptions := []string{"play", mapHeightOption, mapWidthOption, mapOption, "-t=500"}
 
 	for _, p := range playerOptions {
 		playOptions = append(playOptions, p)

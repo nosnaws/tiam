@@ -46,13 +46,13 @@ func end(state fastGame.GameState) {
 // This function is called on every turn of a game. Use the provided GameState to decide
 // where to move -- valid moves are "up", "down", "left", or "right".
 // We've provided some code and comments to get you started.
-func move(state fastGame.GameState, config *brain.MCTSConfig, txn *newrelic.Transaction) fastGame.BattlesnakeMoveResponse {
-	log.Println("START TURN: ", state.Turn)
-	gameBoard := fastGame.BuildBoard(state)
+func move(gameState fastGame.GameState, config *brain.MCTSConfig, state brain.MctsGame, txn *newrelic.Transaction) fastGame.BattlesnakeMoveResponse {
+	log.Println("START TURN: ", gameState.Turn)
+	gameBoard := fastGame.BuildBoard(gameState)
 
-	move := brain.MCTS(&gameBoard, config, txn)
+	move := state.MCTS(&gameBoard, config, txn)
 
-	log.Println("RETURNING TURN: ", state.Turn)
+	log.Println("RETURNING TURN: ", gameState.Turn)
 	if move.Dir == fastGame.Left {
 		return fastGame.BattlesnakeMoveResponse{
 			Move: "left",

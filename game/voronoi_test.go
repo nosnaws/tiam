@@ -34,13 +34,13 @@ func TestVoronoi(t *testing.T) {
 
 	v := Voronoi(&board, id)
 
-	if v.Score != 1 {
+	if v.Score[id] != 1 {
 		board.Print()
 		fmt.Println(v)
 		panic("Voronoi is should be 1!")
 	}
 
-	if v.FoodDepth != 1 {
+	if v.FoodDepth[id] != 1 {
 		board.Print()
 		fmt.Println(v)
 		panic("foodDepth should be 1!")
@@ -76,13 +76,13 @@ func TestVoronoi(t *testing.T) {
 
 	v = Voronoi(&board, id)
 
-	if v.Score != 6 {
+	if v.Score[id] != 6 {
 		board.Print()
 		fmt.Println(v)
 		panic("Voronoi is should be 5!")
 	}
 
-	if v.FoodDepth != 0 {
+	if v.FoodDepth[id] != 0 {
 		board.Print()
 		fmt.Println(v)
 		panic("Food depth is not 0")

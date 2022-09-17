@@ -1,8 +1,8 @@
 package main
 
 import (
+	"context"
 	"log"
-	"math"
 
 	b "github.com/nosnaws/tiam/brain"
 	g "github.com/nosnaws/tiam/game"
@@ -30,11 +30,14 @@ func compareMoves(a, b moveAndScore) bool {
 	return aScore > bScore
 }
 
-func determineMove(state g.GameState) g.Move {
+func determineMove(ctx context.Context, state g.GameState) g.Move {
 	board := g.BuildBoard(state)
-	move := b.Minmax(&board, g.Move(""), 6, -math.MaxFloat64, math.MaxFloat64, true)
+	//move := b.Minmax(&board, g.MeId, 6)
+	//move := b.IdfsMinmax(&board)
+	//move := b.BRS(&board, g.Left, 8, math.Inf(-1), math.Inf(1), true)
+	move := b.IDBRS(ctx, &board)
 
-	return move.Move
+	return move
 }
 
 func info() g.BattlesnakeInfoResponse {
@@ -42,9 +45,9 @@ func info() g.BattlesnakeInfoResponse {
 	return g.BattlesnakeInfoResponse{
 		APIVersion: "1",
 		Author:     "nosnaws",
-		Color:      "#32a852",
-		Head:       "iguana",
-		Tail:       "iguana",
+		Color:      "#38a852",
+		Head:       "cosmic-horror",
+		Tail:       "cosmic-horror",
 	}
 }
 
@@ -56,10 +59,10 @@ func end(state g.GameState) {
 	log.Printf("%s END\n\n", state.Game.ID)
 }
 
-func move(state g.GameState) g.BattlesnakeMoveResponse {
+func move(ctx context.Context, state g.GameState) g.BattlesnakeMoveResponse {
 	log.Println("START TURN: ", state.Turn)
 
-	move := determineMove(state)
+	move := determineMove(ctx, state)
 
 	log.Println("RETURNING TURN: ", state.Turn, move)
 	if move == g.Left {
