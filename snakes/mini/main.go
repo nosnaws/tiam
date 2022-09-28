@@ -15,13 +15,13 @@ import (
 	"strconv"
 
 	"github.com/newrelic/go-agent/v3/newrelic"
-	fastGame "github.com/nosnaws/tiam/game"
+	api "github.com/nosnaws/tiam/battlesnake"
 	instru "github.com/nosnaws/tiam/instrumentation"
 )
 
 const ServerID = "nosnaws/eater"
 
-func recordLatency(app *newrelic.Application, state fastGame.GameState) {
+func recordLatency(app *newrelic.Application, state api.GameState) {
 	latency, err := strconv.ParseFloat(state.You.Latency, 64)
 	if err == nil {
 		app.RecordCustomMetric("lastTurnLatency", latency)
@@ -41,7 +41,7 @@ func HandleIndex(w http.ResponseWriter, r *http.Request) {
 }
 
 func HandleStart(w http.ResponseWriter, r *http.Request) {
-	state := fastGame.GameState{}
+	state := api.GameState{}
 	err := json.NewDecoder(r.Body).Decode(&state)
 	if err != nil {
 		log.Printf("ERROR: Failed to decode start json, %s", err)
@@ -62,7 +62,7 @@ func HandleMove(w http.ResponseWriter, r *http.Request) {
 	ctx, cancel := context.WithTimeout(r.Context(), duration)
 	defer cancel()
 
-	state := fastGame.GameState{}
+	state := api.GameState{}
 	err = json.NewDecoder(r.Body).Decode(&state)
 	if err != nil {
 		log.Printf("ERROR: Failed to decode move json, %s", err)
@@ -87,7 +87,7 @@ func HandleMove(w http.ResponseWriter, r *http.Request) {
 
 func HandleEnd(w http.ResponseWriter, r *http.Request) {
 
-	state := fastGame.GameState{}
+	state := api.GameState{}
 	err := json.NewDecoder(r.Body).Decode(&state)
 	if err != nil {
 		log.Printf("ERROR: Failed to decode end json, %s", err)

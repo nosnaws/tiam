@@ -6,24 +6,24 @@ import (
 	"fmt"
 
 	"github.com/newrelic/go-agent/v3/newrelic"
-	fastGame "github.com/nosnaws/tiam/game"
+	api "github.com/nosnaws/tiam/battlesnake"
 )
 
 type SnakeData struct {
-	Head  fastGame.Coord   `json:"head"`
-	Body  []fastGame.Coord `json:"body"`
-	Color string           `json:"color"`
+	Head  api.Coord   `json:"head"`
+	Body  []api.Coord `json:"body"`
+	Color string      `json:"color"`
 }
 
 func encodeString(s []byte) string {
 	return b64.StdEncoding.EncodeToString(s)
 }
 
-func getSnakeData(snake fastGame.Battlesnake) SnakeData {
+func getSnakeData(snake api.Battlesnake) SnakeData {
 	return SnakeData{Head: snake.Head, Body: snake.Body, Color: snake.Customizations.Color}
 }
 
-func getBaseAttributes(txn *newrelic.Transaction, state fastGame.GameState) {
+func getBaseAttributes(txn *newrelic.Transaction, state api.GameState) {
 	snakeData, _ := json.Marshal(getSnakeData(state.You))
 	foodString, _ := json.Marshal(state.Board.Food)
 	hazardString, _ := json.Marshal(state.Board.Hazards)
@@ -60,11 +60,11 @@ func getBaseAttributes(txn *newrelic.Transaction, state fastGame.GameState) {
 	}
 }
 
-func GetCustomAttributes(txn *newrelic.Transaction, state fastGame.GameState) {
+func GetCustomAttributes(txn *newrelic.Transaction, state api.GameState) {
 	getBaseAttributes(txn, state)
 }
 
-func GetCustomAttributesEnd(txn *newrelic.Transaction, state fastGame.GameState) {
+func GetCustomAttributesEnd(txn *newrelic.Transaction, state api.GameState) {
 	getBaseAttributes(txn, state)
 	snakes := state.Board.Snakes
 

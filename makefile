@@ -12,6 +12,9 @@ build:
 run:
 	go run ./snakes/tiam/
 
+compile:
+	go build -o tiam ./snakes/tiam/
+
 build_random:
 	docker build -t random -f "Dockerfile.random" .
 

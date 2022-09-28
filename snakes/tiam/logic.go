@@ -10,65 +10,54 @@ import (
 	"log"
 
 	"github.com/newrelic/go-agent/v3/newrelic"
-	"github.com/nosnaws/tiam/brain"
-	fastGame "github.com/nosnaws/tiam/game"
+
+	api "github.com/nosnaws/tiam/battlesnake"
+	"github.com/nosnaws/tiam/board"
+	"github.com/nosnaws/tiam/mmm"
 )
 
-// This function is called when you register your Battlesnake on play.battlesnake.com
-// See https://docs.battlesnake.com/guides/getting-started#step-4-register-your-battlesnake
-// It controls your Battlesnake appearance and author permissions.
-// For customization options, see https://docs.battlesnake.com/references/personalization
-// TIP: If you open your Battlesnake URL in browser you should see this data.
-func info() fastGame.BattlesnakeInfoResponse {
+func info() api.BattlesnakeInfoResponse {
 	log.Println("INFO")
-	return fastGame.BattlesnakeInfoResponse{
+	return api.BattlesnakeInfoResponse{
 		APIVersion: "1",
-		Author:     "nosnaws",       // TODO: Your Battlesnake username
-		Color:      "#000000",       // TODO: Personalize
-		Head:       "alligator",     // TODO: Personalize
-		Tail:       "cosmic-horror", // TODO: Personalize
+		Author:     "nosnaws",
+		Color:      "#002080",
+		Head:       "alligator",
+		Tail:       "cosmic-horror",
 	}
 }
 
-// This function is called everytime your Battlesnake is entered into a game.
-// The provided GameState contains information about the game that's about to be played.
-// It's purely for informational purposes, you don't have to make any decisions here.
-func start(state fastGame.GameState) {
+func start(state api.GameState) {
 	log.Printf("%s START\n", state.Game.ID)
 }
 
-// This function is called when a game your Battlesnake was in has ended.
-// It's purely for informational purposes, you don't have to make any decisions here.
-func end(state fastGame.GameState) {
+func end(state api.GameState) {
 	log.Printf("%s END\n\n", state.Game.ID)
 }
 
-// This function is called on every turn of a game. Use the provided GameState to decide
-// where to move -- valid moves are "up", "down", "left", or "right".
-// We've provided some code and comments to get you started.
-func move(gameState fastGame.GameState, config *brain.MCTSConfig, state brain.MctsGame, txn *newrelic.Transaction) fastGame.BattlesnakeMoveResponse {
+func move(gameState api.GameState, txn *newrelic.Transaction) api.BattlesnakeMoveResponse {
 	log.Println("START TURN: ", gameState.Turn)
-	gameBoard := fastGame.BuildBoard(gameState)
+	gameBoard := board.BuildBoard(gameState)
 
-	move := state.MCTS(&gameBoard, config, txn)
+	move := mmm.MultiMinmaxID(&gameBoard)
 
 	log.Println("RETURNING TURN: ", gameState.Turn)
-	if move.Dir == fastGame.Left {
-		return fastGame.BattlesnakeMoveResponse{
+	if move == board.Left {
+		return api.BattlesnakeMoveResponse{
 			Move: "left",
 		}
 	}
-	if move.Dir == fastGame.Right {
-		return fastGame.BattlesnakeMoveResponse{
+	if move == board.Right {
+		return api.BattlesnakeMoveResponse{
 			Move: "right",
 		}
 	}
-	if move.Dir == fastGame.Up {
-		return fastGame.BattlesnakeMoveResponse{
+	if move == board.Up {
+		return api.BattlesnakeMoveResponse{
 			Move: "up",
 		}
 	}
-	return fastGame.BattlesnakeMoveResponse{
+	return api.BattlesnakeMoveResponse{
 		Move: "down",
 	}
 }

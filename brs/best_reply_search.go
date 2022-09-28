@@ -142,7 +142,7 @@ func (brs *BRSGame) BRS(board *g.FastBoard, move g.Move, depth int, alpha, beta 
 	if maxPlayer && len(moves) == 0 {
 		ns := board.Clone()
 		// go left so the game can end
-		ns.AdvanceBoard(movesToMap([]g.SnakeMove{{Id: g.MeId, Dir: g.Left}}))
+		ns.AdvanceBoardTB(g.SnakeMove{Id: g.MeId, Dir: g.Left})
 
 		return BRSNode{
 			Score: brsHeuristic(&ns, depth),
@@ -290,4 +290,13 @@ type ttEntry struct {
 
 func createTTTable() map[BoardHash]ttEntry {
 	return make(map[BoardHash]ttEntry)
+}
+func getOtherSnakeIds(board *g.FastBoard, id g.SnakeId) []g.SnakeId {
+	otherSnakes := []g.SnakeId{}
+	for hid := range board.Heads {
+		if board.IsSnakeAlive(hid) && hid != id && hid != g.MeId {
+			otherSnakes = append(otherSnakes, hid)
+		}
+	}
+	return otherSnakes
 }

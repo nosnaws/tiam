@@ -12,9 +12,9 @@ import (
 //../rules/battlesnake play -W 11 -H 11 -n tiam -u http://localhost:8081 -n local -u http://localhost:8080 -n shai -u http://localhost:8082 -n shai2 -u http://localhost:8083 --output game_out.txt
 
 type game struct {
-	players         []player
-	width, height   int
-	mapName, cliExe string
+	players                   []player
+	width, height, hzDamage   int
+	mapName, gameType, cliExe string
 }
 
 type player struct {
@@ -33,10 +33,15 @@ func runGame(g game, visual bool) string {
 	}
 
 	playerOptions := createPlayerOptions(g.players)
-	mapOption := createMapOption(g.mapName)
-	mapHeightOption := createMapHeightOption(g.height)
-	mapWidthOption := createMapWidthOption(g.width)
-	playOptions := []string{"play", mapHeightOption, mapWidthOption, mapOption, "-t=500"}
+	playOptions := []string{
+		"play",
+		createMapHeightOption(g.height),
+		createMapWidthOption(g.width),
+		createMapOption(g.mapName),
+		createGameTypeOption(g.gameType),
+		createHazardDamageOption(g.hzDamage),
+		"-t=500",
+	}
 
 	for _, p := range playerOptions {
 		playOptions = append(playOptions, p)
@@ -58,7 +63,7 @@ func runGame(g game, visual bool) string {
 }
 
 func parseWinner(out string) string {
-	winnerRegex := regexp.MustCompile(`Game completed after .+ turns. (.+) is the winner.`)
+	winnerRegex := regexp.MustCompile(`Game completed after .+ turns. (.+) was the winner.`)
 	isDraw := strings.Contains(out, "It was a draw.")
 
 	if isDraw {
@@ -91,4 +96,12 @@ func createMapWidthOption(width int) string {
 
 func createMapHeightOption(height int) string {
 	return fmt.Sprintf("-H=%d", height)
+}
+
+func createGameTypeOption(name string) string {
+	return fmt.Sprintf("-g=%s", name)
+}
+
+func createHazardDamageOption(damage int) string {
+	return fmt.Sprintf("--hazardDamagePerTurn=%d", damage)
 }

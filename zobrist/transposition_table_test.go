@@ -1,4 +1,4 @@
-package brain
+package zobrist
 
 import (
 	"testing"
@@ -34,10 +34,10 @@ func TestTTable(t *testing.T) {
 	}
 	board := g.BuildBoard(state)
 
-	tt := InitializeTranspositionTable(5, 5)
+	tt := InitializeZobristHash(5, 5)
 
-	hash1 := HashBoard(tt, board)
-	hash2 := HashBoard(tt, board)
+	hash1 := GetZobristKey(tt, board)
+	hash2 := GetZobristKey(tt, board)
 
 	if hash1 != hash2 {
 		panic("Hashes did not match!")
@@ -49,7 +49,7 @@ func TestTTable(t *testing.T) {
 	ns := board.Clone()
 	ns.AdvanceBoard(moves)
 
-	newHash := HashBoard(tt, ns)
+	newHash := GetZobristKey(tt, ns)
 
 	if newHash == hash1 {
 		panic("Snake moved, hashes should not match!")

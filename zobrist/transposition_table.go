@@ -1,21 +1,21 @@
-package brain
+package zobrist
 
 import (
 	"math/rand"
 	"time"
 
-	g "github.com/nosnaws/tiam/game"
+	"github.com/nosnaws/tiam/board"
 )
 
-type BoardHash uint64
-type TranspositionTable [][]BoardHash
+type Key uint64
+type ZobristTable [][]Key
 
-type Piece int
+type piece int
 
 const (
 	numPieces int = 10
 
-	emptyPiece  Piece = -1
+	emptyPiece  piece = -1
 	foodPiece         = 0
 	hazardPiece       = 1
 
@@ -30,40 +30,40 @@ const (
 	otherSegment     = 9
 )
 
-func InitializeTranspositionTable(height, width int) TranspositionTable {
+func InitializeZobristTable(height, width int) ZobristTable {
 	rand.Seed(time.Now().Unix())
 	boardLen := height * width
-	t := make(TranspositionTable, boardLen)
+	t := make(ZobristTable, boardLen)
 
 	for i := 0; i < boardLen; i++ {
-		t[i] = make([]BoardHash, numPieces)
+		t[i] = make([]Key, numPieces)
 		for j := 0; j < numPieces; j++ {
-			t[i][j] = BoardHash(rand.Uint64())
+			t[i][j] = Key(rand.Uint64())
 		}
 	}
 
 	return t
 }
 
-func HashBoard(tt TranspositionTable, b g.FastBoard) BoardHash {
-	hash := BoardHash(0)
+func GetZobristKey(zh ZobristTable, b *board.FastBoard) Key {
+	key := Key(0)
 	boardLen := len(b.List)
 
 	for i := 0; i < boardLen; i++ {
 		p := indexOf(b.List[i])
 
 		if p != emptyPiece {
-			hash ^= tt[i][p]
+			key ^= zh[i][p]
 		}
 	}
 
-	return hash
+	return key
 }
 
-func indexOf(t g.Tile) Piece {
+func indexOf(t board.Tile) piece {
 	id, ok := t.GetSnakeId()
 	if ok {
-		if id == g.MeId {
+		if id == board.MeId {
 			if t.IsTripleStack() {
 				return meTripleStack
 			} else if t.IsDoubleStack() {
@@ -86,7 +86,6 @@ func indexOf(t g.Tile) Piece {
 		}
 	} else if t.IsFood() {
 		return foodPiece
-		//return emptyPiece
 	} else if t.IsHazard() {
 		return hazardPiece
 	}

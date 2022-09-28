@@ -1,8 +1,9 @@
-package game
+package board
 
 import (
 	"fmt"
-	"math/rand"
+
+	b "github.com/nosnaws/tiam/battlesnake"
 )
 
 const MeId = SnakeId(1)
@@ -17,13 +18,13 @@ type hazardDepthMap map[uint16]int8
 
 type FastBoard struct {
 	List         []Tile
-	ids          idsMap
+	Ids          idsMap
 	Heads        headsMap
 	Lengths      lengthsMap
 	Healths      healthsMap
 	Width        uint16
 	Height       uint16
-	isWrapped    bool
+	IsWrapped    bool
 	hazardDamage int8
 	hazardDepth  hazardDepthMap
 	hasEaten     map[SnakeId]bool
@@ -39,7 +40,7 @@ type idToNewHead struct {
 	index uint16
 }
 
-func BuildBoard(state GameState) FastBoard {
+func BuildBoard(state b.GameState) FastBoard {
 	height := uint16(state.Board.Height)
 	width := uint16(state.Board.Width)
 	hazardDamage := int8(state.Game.Ruleset.Settings.HazardDamagePerTurn)
@@ -134,11 +135,11 @@ func BuildBoard(state GameState) FastBoard {
 		Width:        width,
 		Height:       height,
 		List:         list,
-		ids:          ids,
+		Ids:          ids,
 		Lengths:      lengths,
 		Healths:      healths,
 		Heads:        heads,
-		isWrapped:    state.Game.Ruleset.Name == "wrapped",
+		IsWrapped:    state.Game.Ruleset.Name == "wrapped",
 		hazardDamage: hazardDamage,
 		hazardDepth:  hazardDepth,
 		hasEaten:     hasEaten,
@@ -154,13 +155,13 @@ func (b *FastBoard) AdvanceBoard(moves map[SnakeId]Move) {
 			continue
 		}
 
-		newPoint := pointInDirection(dir, b.Heads[id], b.Width, b.Height, b.isWrapped)
+		newPoint := pointInDirection(dir, b.Heads[id], b.Width, b.Height, b.IsWrapped)
 		newIndex := pointToIndex(newPoint, b.Width)
 		isDead := false
 
 		// head to head with larger or equal snake
 		for oId, oDir := range moves {
-			oPoint := pointInDirection(oDir, b.Heads[oId], b.Width, b.Height, b.isWrapped)
+			oPoint := pointInDirection(oDir, b.Heads[oId], b.Width, b.Height, b.IsWrapped)
 			oIndex := pointToIndex(oPoint, b.Width)
 
 			if oIndex == newIndex && oId != id && b.Lengths[oId] >= b.Lengths[id] {
@@ -194,7 +195,7 @@ func (b *FastBoard) AdvanceBoard(moves map[SnakeId]Move) {
 				didSnakeEat := false
 
 				snakeDir := moves[moveTile.id]
-				snakeNewHead := pointInDirection(snakeDir, b.Heads[moveTile.id], b.Width, b.Height, b.isWrapped)
+				snakeNewHead := pointInDirection(snakeDir, b.Heads[moveTile.id], b.Width, b.Height, b.IsWrapped)
 				if !b.isOffBoard(snakeNewHead) {
 					didSnakeEat = b.List[pointToIndex(snakeNewHead, b.Width)].IsFood()
 				}
@@ -222,13 +223,15 @@ func (b *FastBoard) AdvanceBoard(moves map[SnakeId]Move) {
 		}
 	}
 
+	eatingSnakes := make(map[SnakeId]bool)
+
 	// move tails
 	for id, dir := range moves {
 		if dir == "" {
 			continue
 		}
 
-		newPoint := pointInDirection(dir, b.Heads[id], b.Width, b.Height, b.isWrapped)
+		newPoint := pointInDirection(dir, b.Heads[id], b.Width, b.Height, b.IsWrapped)
 		newIndex := pointToIndex(newPoint, b.Width)
 
 		if b.Lengths[id] < 1 {
@@ -241,19 +244,30 @@ func (b *FastBoard) AdvanceBoard(moves map[SnakeId]Move) {
 
 		oldHeadTile := b.List[oldHeadIndex]
 		tailTile := b.List[tailIndex]
-		if oldHeadTile.IsTripleStack() || tailTile.IsDoubleStack() {
+		if oldHeadTile.IsTripleStack() {
 			continue
 		}
 
+		next := b.List[tailIndex].GetIdx()
 		if didSnakeEat {
+			eatingSnakes[id] = true
 			b.Lengths[id] += 1
-			continue
-		}
 
-		//  update head with new tail
-		b.setTileSnakeHead(b.Heads[id], id, b.List[tailIndex].GetIdx())
-		// clear tail spot
-		b.clearTile(tailIndex)
+			if !tailTile.IsDoubleStack() {
+				b.setTileSnakeDoubleStack(next, id, b.List[next].GetIdx())
+				// clear tail spot
+				b.clearTile(tailIndex)
+			}
+			//  update head with new tail
+			b.setTileSnakeHead(b.Heads[id], id, next)
+		} else {
+			if !b.List[tailIndex].IsDoubleStack() {
+				//  update head with new tail
+				b.setTileSnakeHead(b.Heads[id], id, next)
+				// clear tail spot
+				b.clearTile(tailIndex)
+			}
+		}
 	}
 
 	// move heads
@@ -262,7 +276,7 @@ func (b *FastBoard) AdvanceBoard(moves map[SnakeId]Move) {
 			continue
 		}
 
-		newPoint := pointInDirection(dir, b.Heads[id], b.Width, b.Height, b.isWrapped)
+		newPoint := pointInDirection(dir, b.Heads[id], b.Width, b.Height, b.IsWrapped)
 		newIndex := pointToIndex(newPoint, b.Width)
 
 		if b.Healths[id] < 1 {
@@ -275,7 +289,11 @@ func (b *FastBoard) AdvanceBoard(moves map[SnakeId]Move) {
 		if b.List[oldHeadIndex].IsTripleStack() {
 			b.setTileSnakeHead(newIndex, id, oldHeadIndex)
 			b.setTileSnakeDoubleStack(oldHeadIndex, id, newIndex)
-		} else if b.List[tailIndex].IsDoubleStack() {
+		} else if b.List[tailIndex].IsDoubleStack() && b.Lengths[id] > 3 && !eatingSnakes[id] {
+			b.setTileSnakeHead(newIndex, id, tailIndex)
+			b.setTileSnakeBodyPart(oldHeadIndex, id, newIndex)
+			b.setTileSnakeBodyPart(tailIndex, id, b.List[tailIndex].GetIdx())
+		} else if b.List[tailIndex].IsDoubleStack() && b.Lengths[id] == 3 {
 			b.setTileSnakeHead(newIndex, id, tailIndex)
 			b.setTileSnakeBodyPart(oldHeadIndex, id, newIndex)
 			b.setTileSnakeBodyPart(tailIndex, id, oldHeadIndex)
@@ -314,13 +332,7 @@ func (b *FastBoard) kill(id SnakeId) {
 }
 
 func (b *FastBoard) GetMovesForSnake(id SnakeId) []SnakeMove {
-	var possibleMoves []SnakeMove
-	snakeHeadIndex := b.Heads[id]
-
-	moves := b.GetNeighbors(snakeHeadIndex)
-	for _, m := range moves {
-		possibleMoves = append(possibleMoves, SnakeMove{Id: id, Dir: m})
-	}
+	possibleMoves := b.GetMovesForSnakeNoDefault(id)
 	// No moves, go left
 	if len(possibleMoves) == 0 {
 		possibleMoves = append(possibleMoves, SnakeMove{Id: id, Dir: Left})
@@ -364,6 +376,67 @@ func (b *FastBoard) GetNeighbors(index uint16) []Move {
 	return possibleMoves
 }
 
+func (b *FastBoard) GetHazardNeighbors(index uint16) []uint16 {
+	neighbors := b.GetNeighbors(index)
+
+	hNeighbors := []uint16{}
+	for _, neighbor := range neighbors {
+		nIndex := IndexInDirection(neighbor, index, b.Width, b.Height, b.IsWrapped)
+		if b.isTileHazard(nIndex) {
+			hNeighbors = append(hNeighbors, nIndex)
+		}
+	}
+	return hNeighbors
+}
+
+func (b *FastBoard) GetSnakeTail(id SnakeId) uint16 {
+	return b.List[b.Heads[id]].GetIdx()
+}
+
+func (b *FastBoard) GetLastMove(id SnakeId) Move {
+	neckIndex := b.GetSnakeNeck(id)
+	headIndex := b.Heads[id]
+
+	if neckIndex == headIndex {
+		return ""
+	}
+
+	if b.IndexInDirection(Left, neckIndex) == headIndex {
+		return Left
+	}
+	if b.IndexInDirection(Right, neckIndex) == headIndex {
+		return Right
+	}
+	if b.IndexInDirection(Up, neckIndex) == headIndex {
+		return Up
+	}
+	return Down
+}
+
+func (b *FastBoard) IndexInDirection(move Move, current uint16) uint16 {
+	return IndexInDirection(move, current, b.Width, b.Height, b.IsWrapped)
+}
+
+func (b *FastBoard) GetSnakeNeck(id SnakeId) uint16 {
+	headIndex := b.Heads[id]
+	tailIndex := b.List[headIndex].GetIdx()
+
+	if b.List[headIndex].IsTripleStack() {
+		return headIndex
+	} else if b.List[tailIndex].IsDoubleStack() {
+		return tailIndex
+	} else {
+		currentIndex := tailIndex
+		lastIndex := currentIndex
+		for currentIndex != headIndex {
+			nextIndex := b.List[currentIndex].GetIdx()
+			lastIndex = currentIndex
+			currentIndex = nextIndex
+		}
+		return lastIndex
+	}
+}
+
 func (b *FastBoard) setTileSnakeTripleStack(index uint16, id SnakeId) {
 	tile := b.List[index]
 	tile.SetTripleStack(id)
@@ -388,18 +461,6 @@ func (b *FastBoard) setTileSnakeHead(index uint16, id SnakeId, nextIdx uint16) {
 	b.List[index] = tile
 }
 
-func (b *FastBoard) setTileSnakeHeadTail(index uint16, headId SnakeId, headTail uint16, tailId SnakeId, tailNext uint16) {
-	tile := b.List[index]
-	tile.SetHeadTail(headId, headTail, tailId, tailNext)
-	b.List[index] = tile
-}
-
-func (b *FastBoard) setTileSnakeBodyTail(index uint16, bodyId SnakeId, bodyNext uint16, tailId SnakeId, tailNext uint16) {
-	tile := b.List[index]
-	tile.SetBodyTail(bodyId, bodyNext, tailId, tailNext)
-	b.List[index] = tile
-}
-
 func (b *FastBoard) clearTile(index uint16) {
 	tile := b.List[index]
 	tile.Clear()
@@ -414,7 +475,7 @@ func (b *FastBoard) IsTileFood(index uint16) bool {
 	return b.List[index].IsFood()
 }
 
-func (b *FastBoard) isTileSnakeHead(index uint16) bool {
+func (b *FastBoard) IsTileSnakeHead(index uint16) bool {
 	return b.List[index].IsSnakeHead()
 }
 
@@ -426,12 +487,8 @@ func (b *FastBoard) isTileNonHeadSnakeSegment(index uint16) bool {
 	return b.List[index].IsNonHeadSegment()
 }
 
-func (b *FastBoard) isTileSnakeHeadTail(index uint16) bool {
-	return b.List[index].IsHeadTail()
-}
-
 func (b *FastBoard) isTileSafeTail(index uint16) bool {
-	id, ok := b.getSnakeIdAtTile(index)
+	id, ok := b.GetSnakeIdAtTile(index)
 	if ok {
 		headIndex := b.Heads[id]
 		tailIndex := b.List[headIndex].GetIdx()
@@ -442,7 +499,7 @@ func (b *FastBoard) isTileSafeTail(index uint16) bool {
 	return false
 }
 
-func (b *FastBoard) getSnakeIdAtTile(index uint16) (SnakeId, bool) {
+func (b *FastBoard) GetSnakeIdAtTile(index uint16) (SnakeId, bool) {
 	return b.List[index].GetSnakeId()
 }
 
@@ -461,6 +518,10 @@ func (b *FastBoard) IsGameOver() bool {
 	return snakesLeft < 2
 }
 
+func (b *FastBoard) RemoveSnake(id SnakeId) {
+	b.kill(id)
+}
+
 func (b *FastBoard) IsSnakeAlive(id SnakeId) bool {
 	if b.Lengths[id] > 0 {
 		return true
@@ -470,33 +531,11 @@ func (b *FastBoard) IsSnakeAlive(id SnakeId) bool {
 }
 
 func (b *FastBoard) pointInDirection(m Move, cur uint16) Point {
-	p := addPoints(indexToPoint(cur, b.Width), moveToPoint(m))
-	if b.isWrapped {
+	p := addPoints(IndexToPoint(cur, b.Width), moveToPoint(m))
+	if b.IsWrapped {
 		p = adjustForWrapped(p, b.Width, b.Height)
 	}
 	return p
-}
-
-func (b *FastBoard) RandomRollout() {
-	//turn := 0
-	moves := make(map[SnakeId]Move, len(b.Lengths))
-	for !b.IsGameOver() {
-		//moves := make([]SnakeMove, 0, len(b.Lengths))
-
-		for id, l := range b.Lengths {
-			if l == 0 {
-				moves[id] = ""
-				continue
-			}
-
-			sMoves := b.GetMovesForSnake(id)
-			randomMove := sMoves[rand.Intn(len(sMoves))]
-			//moves = append(moves, randomMove)
-			moves[id] = randomMove.Dir
-		}
-		//turn += 1
-		b.AdvanceBoard(moves)
-	}
 }
 
 //type FastBoard struct {
@@ -516,9 +555,9 @@ func (b *FastBoard) Clone() FastBoard {
 	newBoard.List = make([]Tile, len(b.List))
 	copy(newBoard.List, b.List)
 
-	newBoard.ids = make(idsMap, len(b.ids))
-	for sId, id := range b.ids {
-		newBoard.ids[sId] = id
+	newBoard.Ids = make(idsMap, len(b.Ids))
+	for sId, id := range b.Ids {
+		newBoard.Ids[sId] = id
 	}
 
 	newBoard.Heads = make(headsMap, len(b.Heads))
@@ -548,21 +587,14 @@ func (b *FastBoard) Clone() FastBoard {
 
 	newBoard.Width = b.Width
 	newBoard.Height = b.Height
-	newBoard.isWrapped = b.isWrapped
+	newBoard.IsWrapped = b.IsWrapped
 	newBoard.hazardDamage = b.hazardDamage
 
 	return newBoard
 }
 
 func (b *FastBoard) tileToString(index uint16) string {
-	if b.isTileSnakeHeadTail(index) {
-		return " ht "
-	}
-	if b.List[index].IsDoubleStack() {
-		return " sd "
-	}
-
-	if b.isTileSnakeHead(index) {
+	if b.IsTileSnakeHead(index) {
 		return fmt.Sprintf(" %dh ", b.List[index].id)
 	}
 	if b.isTileSnakeSegment(index) {
@@ -596,4 +628,9 @@ func (b *FastBoard) Print() {
 		}
 		fmt.Println(line)
 	}
+}
+
+func (b *FastBoard) MoveToIndex(move SnakeMove) uint16 {
+	p := pointInDirection(move.Dir, b.Heads[move.Id], b.Width, b.Height, b.IsWrapped)
+	return pointToIndex(p, b.Width)
 }

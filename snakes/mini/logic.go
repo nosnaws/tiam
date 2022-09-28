@@ -4,12 +4,13 @@ import (
 	"context"
 	"log"
 
-	b "github.com/nosnaws/tiam/brain"
-	g "github.com/nosnaws/tiam/game"
+	api "github.com/nosnaws/tiam/battlesnake"
+	b "github.com/nosnaws/tiam/board"
+	min "github.com/nosnaws/tiam/mmm"
 )
 
 type moveAndScore struct {
-	move         g.Move
+	move         b.Move
 	voronoiScore int
 	foodScore    int
 }
@@ -30,57 +31,59 @@ func compareMoves(a, b moveAndScore) bool {
 	return aScore > bScore
 }
 
-func determineMove(ctx context.Context, state g.GameState) g.Move {
-	board := g.BuildBoard(state)
+func determineMove(ctx context.Context, state api.GameState) b.Move {
+	board := b.BuildBoard(state)
 	//move := b.Minmax(&board, g.MeId, 6)
 	//move := b.IdfsMinmax(&board)
 	//move := b.BRS(&board, g.Left, 8, math.Inf(-1), math.Inf(1), true)
-	move := b.IDBRS(ctx, &board)
+	//move := b.IDBRS(ctx, &board)
+	//move, _ := min.MultiMinmax(&board, 12)
+	move := min.MultiMinmaxID(&board)
 
 	return move
 }
 
-func info() g.BattlesnakeInfoResponse {
+func info() api.BattlesnakeInfoResponse {
 	log.Println("INFO")
-	return g.BattlesnakeInfoResponse{
+	return api.BattlesnakeInfoResponse{
 		APIVersion: "1",
 		Author:     "nosnaws",
-		Color:      "#38a852",
-		Head:       "cosmic-horror",
-		Tail:       "cosmic-horror",
+		Color:      "#a57aa8",
+		Head:       "rocket-helmet",
+		Tail:       "rocket",
 	}
 }
 
-func start(state g.GameState) {
+func start(state api.GameState) {
 	log.Printf("%s START\n", state.Game.ID)
 }
 
-func end(state g.GameState) {
+func end(state api.GameState) {
 	log.Printf("%s END\n\n", state.Game.ID)
 }
 
-func move(ctx context.Context, state g.GameState) g.BattlesnakeMoveResponse {
+func move(ctx context.Context, state api.GameState) api.BattlesnakeMoveResponse {
 	log.Println("START TURN: ", state.Turn)
 
 	move := determineMove(ctx, state)
 
 	log.Println("RETURNING TURN: ", state.Turn, move)
-	if move == g.Left {
-		return g.BattlesnakeMoveResponse{
+	if move == b.Left {
+		return api.BattlesnakeMoveResponse{
 			Move: "left",
 		}
 	}
-	if move == g.Right {
-		return g.BattlesnakeMoveResponse{
+	if move == b.Right {
+		return api.BattlesnakeMoveResponse{
 			Move: "right",
 		}
 	}
-	if move == g.Up {
-		return g.BattlesnakeMoveResponse{
+	if move == b.Up {
+		return api.BattlesnakeMoveResponse{
 			Move: "up",
 		}
 	}
-	return g.BattlesnakeMoveResponse{
+	return api.BattlesnakeMoveResponse{
 		Move: "down",
 	}
 }

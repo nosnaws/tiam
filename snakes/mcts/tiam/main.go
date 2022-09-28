@@ -14,7 +14,7 @@ import (
 	instru "github.com/nosnaws/tiam/instrumentation"
 )
 
-const ServerID = "nosnaws/tiam"
+const ServerID = "nosnaws/mcts"
 
 func recordLatency(app *newrelic.Application, state api.GameState) {
 	latency, err := strconv.ParseFloat(state.You.Latency, 64)

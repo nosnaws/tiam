@@ -1,12 +1,12 @@
-package brain
+package mcts
 
 import (
 	"fmt"
 	"testing"
 	"time"
 
-	"github.com/newrelic/go-agent/v3/newrelic"
-	"github.com/nosnaws/tiam/game"
+	api "github.com/nosnaws/tiam/battlesnake"
+	b "github.com/nosnaws/tiam/board"
 )
 
 func TestDecisionHeadToHead(t *testing.T) {
@@ -22,10 +22,10 @@ func TestDecisionHeadToHead(t *testing.T) {
 	// _ _ _ s s s f _ _ _ _
 	// _ _ _ _ _ _ _ _ _ _ _
 	// _ _ _ _ _ _ _ _ _ _ _
-	me := game.Battlesnake{
+	me := api.Battlesnake{
 		ID:     "me",
 		Health: 100,
-		Body: []game.Coord{
+		Body: []api.Coord{
 			{X: 6, Y: 4},
 			{X: 6, Y: 3},
 			{X: 5, Y: 3},
@@ -36,10 +36,10 @@ func TestDecisionHeadToHead(t *testing.T) {
 			{X: 3, Y: 2},
 		},
 	}
-	two := game.Battlesnake{
+	two := api.Battlesnake{
 		ID:     "two",
 		Health: 100,
-		Body: []game.Coord{
+		Body: []api.Coord{
 			{X: 7, Y: 5},
 			{X: 7, Y: 6},
 			{X: 7, Y: 7},
@@ -52,21 +52,20 @@ func TestDecisionHeadToHead(t *testing.T) {
 			{X: 9, Y: 6},
 		},
 	}
-	state := game.GameState{
+	state := api.GameState{
 		Turn: 0,
-		Board: game.Board{
-			Snakes: []game.Battlesnake{me, two},
+		Board: api.Board{
+			Snakes: []api.Battlesnake{me, two},
 			Height: 11,
 			Width:  11,
-			Food:   []game.Coord{{X: 7, Y: 3}, {X: 6, Y: 2}},
+			Food:   []api.Coord{{X: 7, Y: 3}, {X: 6, Y: 2}},
 		},
 		You: me,
 	}
-	board := game.BuildBoard(state)
+	board := b.BuildBoard(state)
 
-	mctsG := CreateMctsGame(11, 11)
-	move := mctsG.MCTS(&board, nil, &newrelic.Transaction{})
-	if move.Dir == game.Up || move.Dir == game.Right {
+	move := MCTS(&board, nil)
+	if move.Dir == b.Up || move.Dir == b.Right {
 		board.Print()
 		fmt.Println("selected ", move.Dir)
 		panic("Went up or right!")
@@ -85,42 +84,41 @@ func TestDecision(t *testing.T) {
 	// _ _ _ _ _ _ _ _ _ _ _
 	// _ _ _ _ _ _ _ s s h _
 	// _ _ _ _ _ _ _ _ _ _ _
-	// _ _ _ _ _ _ _ _ _ _ _
-	me := game.Battlesnake{
+	// f _ _ _ _ _ _ _ _ _ _
+	me := api.Battlesnake{
 		ID:     "me",
 		Health: 100,
-		Body:   []game.Coord{{X: 10, Y: 5}, {X: 9, Y: 5}, {X: 8, Y: 5}, {X: 7, Y: 5}},
+		Body:   []api.Coord{{X: 10, Y: 5}, {X: 9, Y: 5}, {X: 8, Y: 5}, {X: 7, Y: 5}},
 	}
-	two := game.Battlesnake{
+	two := api.Battlesnake{
 		ID:     "two",
 		Health: 100,
-		Body:   []game.Coord{{X: 9, Y: 4}, {X: 8, Y: 4}, {X: 7, Y: 4}, {X: 6, Y: 4}},
+		Body:   []api.Coord{{X: 9, Y: 4}, {X: 8, Y: 4}, {X: 7, Y: 4}, {X: 6, Y: 4}},
 	}
-	three := game.Battlesnake{
+	three := api.Battlesnake{
 		ID:     "three",
 		Health: 100,
-		Body:   []game.Coord{{X: 9, Y: 2}, {X: 8, Y: 2}, {X: 7, Y: 2}},
+		Body:   []api.Coord{{X: 9, Y: 2}, {X: 8, Y: 2}, {X: 7, Y: 2}},
 	}
-	four := game.Battlesnake{
+	four := api.Battlesnake{
 		ID:     "four",
 		Health: 100,
-		Body:   []game.Coord{{X: 5, Y: 6}, {X: 4, Y: 6}, {X: 3, Y: 6}, {X: 2, Y: 6}, {X: 1, Y: 6}},
+		Body:   []api.Coord{{X: 5, Y: 6}, {X: 4, Y: 6}, {X: 3, Y: 6}, {X: 2, Y: 6}, {X: 1, Y: 6}},
 	}
-	state := game.GameState{
+	state := api.GameState{
 		Turn: 0,
-		Board: game.Board{
-			Snakes: []game.Battlesnake{me, two, three, four},
+		Board: api.Board{
+			Snakes: []api.Battlesnake{me, two, three, four},
 			Height: 11,
 			Width:  11,
-			Food:   []game.Coord{{X: 10, Y: 4}},
+			Food:   []api.Coord{{X: 10, Y: 4}, {X: 0, Y: 0}},
 		},
 		You: me,
 	}
-	board := game.BuildBoard(state)
+	board := b.BuildBoard(state)
 
-	mctsG := CreateMctsGame(11, 11)
-	move := mctsG.MCTS(&board, nil, &newrelic.Transaction{})
-	if move.Dir != game.Up {
+	move := MCTS(&board, nil)
+	if move.Dir != b.Up {
 		board.Print()
 		fmt.Println("selected ", move.Dir)
 		panic("Did not go up!")
@@ -137,34 +135,33 @@ func TestDecisionDraw(t *testing.T) {
 	// _ _ _ _ _ _ _ _ _ _ _
 	// _ _ _ _ _ _ _ _ _ _ _
 	// _ _ _ _ _ _ _ _ _ _ _
+	// _ f _ _ _ _ _ _ _ _ _
 	// _ _ _ _ _ _ _ _ _ _ _
 	// _ _ _ _ _ _ _ _ _ _ _
-	// _ _ _ _ _ _ _ _ _ _ _
-	me := game.Battlesnake{
+	me := api.Battlesnake{
 		ID:     "me",
 		Health: 100,
-		Body:   []game.Coord{{X: 7, Y: 6}, {X: 6, Y: 6}, {X: 5, Y: 6}, {X: 4, Y: 6}},
+		Body:   []api.Coord{{X: 7, Y: 6}, {X: 6, Y: 6}, {X: 5, Y: 6}, {X: 4, Y: 6}},
 	}
-	two := game.Battlesnake{
+	two := api.Battlesnake{
 		ID:     "two",
 		Health: 100,
-		Body:   []game.Coord{{X: 8, Y: 7}, {X: 8, Y: 8}, {X: 8, Y: 9}, {X: 8, Y: 10}},
+		Body:   []api.Coord{{X: 8, Y: 7}, {X: 8, Y: 8}, {X: 8, Y: 9}, {X: 8, Y: 10}},
 	}
-	state := game.GameState{
+	state := api.GameState{
 		Turn: 0,
-		Board: game.Board{
-			Snakes: []game.Battlesnake{me, two},
+		Board: api.Board{
+			Snakes: []api.Battlesnake{me, two},
 			Height: 11,
 			Width:  11,
-			Food:   []game.Coord{{X: 8, Y: 6}},
+			Food:   []api.Coord{{X: 8, Y: 6}, {X: 1, Y: 2}},
 		},
 		You: me,
 	}
-	board := game.BuildBoard(state)
+	board := b.BuildBoard(state)
 
-	mctsG := CreateMctsGame(11, 11)
-	move := mctsG.MCTS(&board, nil, &newrelic.Transaction{})
-	if move.Dir == game.Right {
+	move := MCTS(&board, nil)
+	if move.Dir == b.Right {
 		board.Print()
 		fmt.Println("selected ", move.Dir)
 		panic("Went right for some stupid reason!")
@@ -184,10 +181,10 @@ func TestDecisionDoesNotSuicide(t *testing.T) {
 	// _ _ _ _ _ _ _ _ _ _ _
 	// _ _ _ _ _ _ _ _ _ _ _
 	// _ _ _ _ _ _ _ _ _ _ _
-	me := game.Battlesnake{
+	me := api.Battlesnake{
 		ID:     "me",
 		Health: 100,
-		Body: []game.Coord{
+		Body: []api.Coord{
 			{X: 8, Y: 8},
 			{X: 8, Y: 9},
 			{X: 9, Y: 9},
@@ -202,10 +199,10 @@ func TestDecisionDoesNotSuicide(t *testing.T) {
 			{X: 7, Y: 8},
 		},
 	}
-	two := game.Battlesnake{
+	two := api.Battlesnake{
 		ID:     "two",
 		Health: 100,
-		Body: []game.Coord{
+		Body: []api.Coord{
 			{X: 7, Y: 7},
 			{X: 7, Y: 6},
 			{X: 6, Y: 6},
@@ -224,24 +221,23 @@ func TestDecisionDoesNotSuicide(t *testing.T) {
 			{X: 0, Y: 5},
 		},
 	}
-	state := game.GameState{
+	state := api.GameState{
 		Turn: 0,
-		Board: game.Board{
-			Snakes: []game.Battlesnake{me, two},
+		Board: api.Board{
+			Snakes: []api.Battlesnake{me, two},
 			Height: 11,
 			Width:  11,
-			Food: []game.Coord{
+			Food: []api.Coord{
 				{X: 7, Y: 9},
 				{X: 10, Y: 9},
 			},
 		},
 		You: me,
 	}
-	board := game.BuildBoard(state)
+	board := b.BuildBoard(state)
 
-	mctsG := CreateMctsGame(11, 11)
-	move := mctsG.MCTS(&board, nil, &newrelic.Transaction{})
-	if move.Dir == game.Down {
+	move := MCTS(&board, nil)
+	if move.Dir == b.Down {
 		board.Print()
 		fmt.Println("selected ", move.Dir)
 		panic("Went down for some stupid reason!")
@@ -257,52 +253,51 @@ func TestPerformance(t *testing.T) {
 	// _ s s s s h _ _ _ _ _
 	// _ _ _ _ _ _ _ s s s h
 	// _ _ _ _ _ _ s s s h f
-	// _ _ _ _ _ _ _ _ _ _ _
+	// f _ _ _ _ _ _ _ _ _ _
 	// _ _ _ _ _ _ _ s s h _
 	// _ _ _ _ _ _ _ _ _ _ _
 	// _ _ _ _ _ _ _ _ _ _ _
-	me := game.Battlesnake{
+	me := api.Battlesnake{
 		ID:     "me",
 		Health: 100,
-		Body:   []game.Coord{{X: 10, Y: 5}, {X: 9, Y: 5}, {X: 8, Y: 5}, {X: 7, Y: 5}},
+		Body:   []api.Coord{{X: 10, Y: 5}, {X: 9, Y: 5}, {X: 8, Y: 5}, {X: 7, Y: 5}},
 	}
-	two := game.Battlesnake{
+	two := api.Battlesnake{
 		ID:     "two",
 		Health: 100,
-		Body:   []game.Coord{{X: 9, Y: 4}, {X: 8, Y: 4}, {X: 7, Y: 4}, {X: 6, Y: 4}},
+		Body:   []api.Coord{{X: 9, Y: 4}, {X: 8, Y: 4}, {X: 7, Y: 4}, {X: 6, Y: 4}},
 	}
-	three := game.Battlesnake{
+	three := api.Battlesnake{
 		ID:     "three",
 		Health: 100,
-		Body:   []game.Coord{{X: 9, Y: 2}, {X: 8, Y: 2}, {X: 7, Y: 2}},
+		Body:   []api.Coord{{X: 9, Y: 2}, {X: 8, Y: 2}, {X: 7, Y: 2}},
 	}
-	four := game.Battlesnake{
+	four := api.Battlesnake{
 		ID:     "four",
 		Health: 100,
-		Body:   []game.Coord{{X: 5, Y: 6}, {X: 4, Y: 6}, {X: 3, Y: 6}, {X: 2, Y: 6}, {X: 1, Y: 6}},
+		Body:   []api.Coord{{X: 5, Y: 6}, {X: 4, Y: 6}, {X: 3, Y: 6}, {X: 2, Y: 6}, {X: 1, Y: 6}},
 	}
-	state := game.GameState{
+	state := api.GameState{
 		Turn: 0,
-		Board: game.Board{
-			Snakes: []game.Battlesnake{me, two, three, four},
+		Board: api.Board{
+			Snakes: []api.Battlesnake{me, two, three, four},
 			Height: 11,
 			Width:  11,
-			Food:   []game.Coord{{X: 10, Y: 4}},
+			Food:   []api.Coord{{X: 10, Y: 4}, {X: 0, Y: 3}},
 		},
 		You: me,
 	}
-	board := game.BuildBoard(state)
+	board := b.BuildBoard(state)
 
 	totalRuns := 100
 	actualRuns := 0
 	maxTime := float64(0)
 	totalTime := float64(0)
-	mctsG := CreateMctsGame(11, 11)
 	for i := 0; i < totalRuns; i++ {
 		ns := board.Clone()
 
 		now := time.Now()
-		mctsG.MCTS(&ns, nil, &newrelic.Transaction{})
+		MCTS(&ns, nil)
 		after := time.Now()
 		actualRuns += 1
 
@@ -336,48 +331,47 @@ func TestPerformanceOpenPosition(t *testing.T) {
 	// _ _ _ _ _ _ _ _ _ _ _
 	// _ _ _ _ _ _ _ _ _ _ _
 	// _ _ _ _ _ _ _ _ _ _ _
-	me := game.Battlesnake{
+	me := api.Battlesnake{
 		ID:     "me",
 		Health: 100,
-		Body:   []game.Coord{{X: 2, Y: 3}, {X: 2, Y: 3}, {X: 2, Y: 3}},
+		Body:   []api.Coord{{X: 2, Y: 3}, {X: 2, Y: 3}, {X: 2, Y: 3}},
 	}
-	two := game.Battlesnake{
+	two := api.Battlesnake{
 		ID:     "two",
 		Health: 100,
-		Body:   []game.Coord{{X: 2, Y: 8}, {X: 2, Y: 8}, {X: 2, Y: 8}},
+		Body:   []api.Coord{{X: 2, Y: 8}, {X: 2, Y: 8}, {X: 2, Y: 8}},
 	}
-	three := game.Battlesnake{
+	three := api.Battlesnake{
 		ID:     "three",
 		Health: 100,
-		Body:   []game.Coord{{X: 8, Y: 8}, {X: 8, Y: 8}, {X: 8, Y: 8}},
+		Body:   []api.Coord{{X: 8, Y: 8}, {X: 8, Y: 8}, {X: 8, Y: 8}},
 	}
-	four := game.Battlesnake{
+	four := api.Battlesnake{
 		ID:     "four",
 		Health: 100,
-		Body:   []game.Coord{{X: 8, Y: 3}, {X: 8, Y: 3}, {X: 8, Y: 3}},
+		Body:   []api.Coord{{X: 8, Y: 3}, {X: 8, Y: 3}, {X: 8, Y: 3}},
 	}
-	state := game.GameState{
+	state := api.GameState{
 		Turn: 0,
-		Board: game.Board{
-			Snakes: []game.Battlesnake{me, two, three, four},
+		Board: api.Board{
+			Snakes: []api.Battlesnake{me, two, three, four},
 			Height: 11,
 			Width:  11,
-			Food:   []game.Coord{{X: 5, Y: 5}},
+			Food:   []api.Coord{{X: 5, Y: 5}},
 		},
 		You: me,
 	}
-	board := game.BuildBoard(state)
+	board := b.BuildBoard(state)
 
 	totalRuns := 500
 	actualRuns := 0
 	maxTime := float64(0)
 	totalTime := float64(0)
-	mctsG := CreateMctsGame(11, 11)
 	for i := 0; i < totalRuns; i++ {
 		ns := board.Clone()
 
 		now := time.Now()
-		mctsG.MCTS(&ns, nil, &newrelic.Transaction{})
+		MCTS(&ns, nil)
 		after := time.Now()
 		actualRuns += 1
 
