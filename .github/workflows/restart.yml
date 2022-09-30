@@ -1,0 +1,14 @@
+name: restart tiam
+on: workflow_dispatch
+jobs:
+  restart:
+    name: Restart
+    runs-on: ubuntu-latest
+    steps:
+    - name: ssh and restart service
+      uses: appleboy/ssh-action@master
+      with:
+        host: ${{ secrets.HOST }}
+        username: ${{ secrets.USERNAME }}
+        key: ${{ secrets.NEST_KEY }}
+        script: systemctl restart tiam.service
