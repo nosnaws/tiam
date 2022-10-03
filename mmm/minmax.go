@@ -150,7 +150,7 @@ func minmax(ctx context.Context, cache *Cache, board *b.FastBoard, maxMove b.Sna
 	default:
 	}
 	log := getLogger()
-	if depth == 0 || board.IsGameOver() || !board.IsSnakeAlive(maxId) {
+	if depth == 0 || shouldExit(board, maxId, minId) {
 		return minmaxHeuristic(board, maxId, minId, depth), ignoreResults
 	}
 
@@ -254,6 +254,18 @@ func minmax(ctx context.Context, cache *Cache, board *b.FastBoard, maxMove b.Sna
 	//}
 
 	return moveScore, ignoreResults
+}
+
+func shouldExit(board *b.FastBoard, maxId b.SnakeId, minId b.SnakeId) bool {
+	if board.IsGameOver() {
+		return true
+	}
+
+	if isDeadOrOut(board, maxId) || isDeadOrOut(board, minId) {
+		return true
+	}
+
+	return false
 }
 
 func isDeadOrOut(board *b.FastBoard, id b.SnakeId) bool {

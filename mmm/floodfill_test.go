@@ -54,9 +54,9 @@ func TestFloodfill(t *testing.T) {
 	board := b.BuildBoard(state)
 	id := board.Ids["me"]
 
-	ff := floodfill(&board, int(board.Heads[id]), 11)
+	ff, _, _ := floodfill(&board, int(board.Heads[id]), 11, []uint16{})
 
-	if ff != 7 {
+	if ff != 8 {
 		board.Print()
 		fmt.Println("floodfill score", ff)
 		panic("wrong floodfill amount!")
