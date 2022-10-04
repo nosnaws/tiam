@@ -16,7 +16,7 @@ type mmNode struct {
 	Move  b.Move
 }
 
-func MultiMinmaxID(board *b.FastBoard) b.Move {
+func MultiMinmaxID(board *b.FastBoard, cache *Cache) b.Move {
 	currentDepth := 0
 
 	// current issue, if it gets to a deep enough depth, it won't return in time
@@ -28,7 +28,9 @@ func MultiMinmaxID(board *b.FastBoard) b.Move {
 	lastBestMove := b.Move("")
 	//lastBestScore := math.Inf(-1)
 
-	cache := createCache(board, currentDepth)
+	if cache == nil {
+		cache = CreateCache(board, currentDepth)
+	}
 
 mmloop:
 	for {
@@ -37,7 +39,7 @@ mmloop:
 			break mmloop
 		default:
 			currentDepth += 2
-			cache.setAdjuster(currentDepth)
+			cache.setCurMax(currentDepth)
 
 			if currentDepth > 500 {
 				fmt.Println("CUTTING OFF")
@@ -155,22 +157,19 @@ func minmax(ctx context.Context, cache *Cache, board *b.FastBoard, maxMove b.Sna
 	}
 
 	// transposition table logic
-	//if entry, ok := cache.getEntry(board, minId, depth); ok {
-	//if entry.isLowerBound() && entry.value >= beta {
-	//return entry.value, ignoreResults
-	//}
-	//if entry.isUpperBound() && entry.value <= alpha {
-	//return entry.value, ignoreResults
-	//}
+	if entry, ok := cache.getEntry(board, minId, depth); ok {
+		if entry.isExact() {
+			return entry.value, ignoreResults
+		}
 
-	//if entry.isLowerBound() && entry.value > alpha {
-	//alpha = entry.value
-	//}
-	//if entry.isUpperBound() && entry.value < beta {
-	//beta = entry.value
-	//}
+		if entry.isLowerBound() && entry.value > alpha {
+			alpha = entry.value
+		}
+		if entry.isUpperBound() && entry.value < beta {
+			beta = entry.value
+		}
 
-	//}
+	}
 
 	// issues with heuristic
 	// since one snake never moves, the game might never be considered "over"
@@ -243,15 +242,15 @@ func minmax(ctx context.Context, cache *Cache, board *b.FastBoard, maxMove b.Sna
 	}
 
 	// adding entries to transposition table
-	//if moveScore <= alpha {
-	//cache.addUpperBound(board, moveScore, minId, depth)
-	//}
-	//if moveScore > alpha && moveScore < beta {
-	//cache.addExact(board, moveScore, minId, depth)
-	//}
-	//if moveScore >= beta {
-	//cache.addLowerBound(board, moveScore, minId, depth)
-	//}
+	if moveScore <= alpha {
+		cache.addUpperBound(board, moveScore, minId, depth)
+	}
+	if moveScore > alpha && moveScore < beta {
+		cache.addExact(board, moveScore, minId, depth)
+	}
+	if moveScore >= beta {
+		cache.addLowerBound(board, moveScore, minId, depth)
+	}
 
 	return moveScore, ignoreResults
 }

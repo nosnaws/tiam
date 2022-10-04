@@ -6,13 +6,20 @@ import (
 
 	api "github.com/nosnaws/tiam/battlesnake"
 	b "github.com/nosnaws/tiam/board"
+	"github.com/nosnaws/tiam/mmm"
 	min "github.com/nosnaws/tiam/mmm"
 )
+
+var gameCache map[string]*mmm.Cache
 
 type moveAndScore struct {
 	move         b.Move
 	voronoiScore int
 	foodScore    int
+}
+
+func initialize() {
+	gameCache = make(map[string]*min.Cache)
 }
 
 func compareMoves(a, b moveAndScore) bool {
@@ -33,12 +40,14 @@ func compareMoves(a, b moveAndScore) bool {
 
 func determineMove(ctx context.Context, state api.GameState) b.Move {
 	board := b.BuildBoard(state)
+	cache := gameCache[state.Game.ID]
+	cache.SetCurTurn(state.Turn)
 	//move := b.Minmax(&board, g.MeId, 6)
 	//move := b.IdfsMinmax(&board)
 	//move := b.BRS(&board, g.Left, 8, math.Inf(-1), math.Inf(1), true)
 	//move := b.IDBRS(ctx, &board)
 	//move, _ := min.MultiMinmax(&board, 12)
-	move := min.MultiMinmaxID(&board)
+	move := min.MultiMinmaxID(&board, cache)
 
 	return move
 }
@@ -55,10 +64,13 @@ func info() api.BattlesnakeInfoResponse {
 }
 
 func start(state api.GameState) {
+	board := b.BuildBoard(state)
+	gameCache[state.Game.ID] = mmm.CreateCache(&board, 0)
 	log.Printf("%s START\n", state.Game.ID)
 }
 
 func end(state api.GameState) {
+	delete(gameCache, state.Game.ID)
 	log.Printf("%s END\n\n", state.Game.ID)
 }
 

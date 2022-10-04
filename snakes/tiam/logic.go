@@ -27,19 +27,30 @@ func info() api.BattlesnakeInfoResponse {
 	}
 }
 
+var gameCache map[string]*mmm.Cache
+
+func initialize() {
+	gameCache = make(map[string]*mmm.Cache)
+}
+
 func start(state api.GameState) {
+	board := board.BuildBoard(state)
+	gameCache[state.Game.ID] = mmm.CreateCache(&board, 0)
 	log.Printf("%s START\n", state.Game.ID)
 }
 
 func end(state api.GameState) {
+	delete(gameCache, state.Game.ID)
 	log.Printf("%s END\n\n", state.Game.ID)
 }
 
 func move(gameState api.GameState, txn *newrelic.Transaction) api.BattlesnakeMoveResponse {
 	log.Println("START TURN: ", gameState.Turn)
 	gameBoard := board.BuildBoard(gameState)
+	cache := gameCache[gameState.Game.ID]
+	cache.SetCurTurn(gameState.Turn)
 
-	move := mmm.MultiMinmaxID(&gameBoard)
+	move := mmm.MultiMinmaxID(&gameBoard, cache)
 
 	log.Println("RETURNING TURN: ", gameState.Turn)
 	if move == board.Left {

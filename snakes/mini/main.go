@@ -154,6 +154,7 @@ func main() {
 		port = "8080"
 	}
 
+	initialize()
 	http.HandleFunc("/", withServerID(HandleIndex))
 	http.HandleFunc("/start", withServerID(HandleStart))
 	http.HandleFunc("/move", getGoroutines(logRequest(withServerID((HandleMove)))))

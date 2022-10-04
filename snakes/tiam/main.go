@@ -174,6 +174,7 @@ func main() {
 		newrelic.ConfigLicense(nrLicenseKey),
 	)
 
+	initialize()
 	http.HandleFunc(newrelic.WrapHandleFunc(app, "/", withServerID(HandleIndex(app))))
 	http.HandleFunc(newrelic.WrapHandleFunc(app, "/start", withServerID(HandleStart(app))))
 	http.HandleFunc(newrelic.WrapHandleFunc(app, "/move", withServerID(HandleMove(app))))

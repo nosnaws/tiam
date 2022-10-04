@@ -5,38 +5,46 @@ import (
 	z "github.com/nosnaws/tiam/zobrist"
 )
 
-const tableSize uint64 = 10067 // prime numbers are better apparently
+// small size 10067
+// larger size 102197
+// largerer size 1000003 - about 200 MBs
+const tableSize uint64 = 1000003 // prime numbers are better apparently
 
 type Cache struct {
-	m        [tableSize]CacheEntry
-	hasher   z.ZobristTable
-	adjuster int
+	m       [tableSize]CacheEntry
+	hasher  z.ZobristTable
+	curMax  int
+	curTurn int
 }
 
-func createCache(b *board.FastBoard, depthAdjuster int) *Cache {
+func CreateCache(b *board.FastBoard, depthAdjuster int) *Cache {
 	return &Cache{
-		m:        [tableSize]CacheEntry{},
-		hasher:   z.InitializeZobristTable(int(b.Height), int(b.Width)),
-		adjuster: depthAdjuster,
+		m:      [tableSize]CacheEntry{},
+		hasher: z.InitializeZobristTable(int(b.Height), int(b.Width)),
+		curMax: depthAdjuster,
 	}
 }
 
-func (c *Cache) setAdjuster(adj int) {
-	c.adjuster = adj
+func (c *Cache) setCurMax(adj int) {
+	c.curMax = adj
+}
+
+func (c *Cache) SetCurTurn(t int) {
+	c.curTurn = t
 }
 
 func (c *Cache) getIndex(k z.Key) uint64 {
 	return uint64(k) % tableSize
 }
 
-func (c *Cache) getEntry(b *board.FastBoard, id board.SnakeId, depth int) (*CacheEntry, bool) {
+func (c *Cache) getEntry(b *board.FastBoard, minId board.SnakeId, depth int) (*CacheEntry, bool) {
 	key := z.GetZobristKey(c.hasher, b)
-	adjDepth := c.adjuster - depth
+	adjDepth := c.curMax - depth
 	index := c.getIndex(key)
 
 	entry := c.m[index]
 
-	if !entry.isHit || entry.minPlayer != id {
+	if !entry.isHit || entry.minPlayer != minId {
 		return nil, false
 	}
 
@@ -52,42 +60,48 @@ func (c *Cache) isCollision(index uint64) bool {
 }
 
 func (c *Cache) addLowerBound(b *board.FastBoard, value float64, id board.SnakeId, depth int) {
-	key := z.GetZobristKey(c.hasher, b)
-	index := c.getIndex(key)
-
-	c.m[index] = CacheEntry{
-		value:     value,
-		depth:     c.adjuster - depth,
-		minPlayer: id,
-		etype:     lowType,
-		isHit:     true,
-	}
+	c.addEntry(b, value, id, depth, lowType)
 }
 
 func (c *Cache) addUpperBound(b *board.FastBoard, value float64, id board.SnakeId, depth int) {
-	key := z.GetZobristKey(c.hasher, b)
-	index := c.getIndex(key)
-
-	c.m[index] = CacheEntry{
-		value:     value,
-		depth:     c.adjuster - depth,
-		minPlayer: id,
-		etype:     upType,
-		isHit:     true,
-	}
+	c.addEntry(b, value, id, depth, upType)
 }
 
 func (c *Cache) addExact(b *board.FastBoard, value float64, id board.SnakeId, depth int) {
+	c.addEntry(b, value, id, depth, exactType)
+}
+
+func (c *Cache) addEntry(b *board.FastBoard, value float64, id board.SnakeId, depth int, eType entryType) {
 	key := z.GetZobristKey(c.hasher, b)
 	index := c.getIndex(key)
+	adjDepth := c.curMax - depth
+
+	if !c.shouldReplace(index, adjDepth) {
+		return
+	}
 
 	c.m[index] = CacheEntry{
 		value:     value,
-		depth:     c.adjuster - depth,
+		depth:     c.curMax - depth,
 		minPlayer: id,
-		etype:     exactType,
+		etype:     eType,
 		isHit:     true,
+		age:       c.curTurn,
 	}
+}
+
+func (c *Cache) shouldReplace(index uint64, adjDepth int) bool {
+	if c.m[index].isHit {
+		if c.m[index].age < c.curTurn {
+			return true
+		}
+
+		if c.m[index].depth < adjDepth {
+			return false
+		}
+	}
+
+	return true
 }
 
 type entryType string
@@ -104,10 +118,11 @@ type CacheEntry struct {
 	etype     entryType
 	depth     int
 	isHit     bool
+	age       int
 }
 
 func (ce *CacheEntry) isUpperBound() bool {
-	if ce.etype == upType || ce.etype == exactType {
+	if ce.etype == upType {
 		return true
 	}
 
@@ -115,10 +130,16 @@ func (ce *CacheEntry) isUpperBound() bool {
 }
 
 func (ce *CacheEntry) isLowerBound() bool {
-	if ce.etype == lowType || ce.etype == exactType {
+	if ce.etype == lowType {
 		return true
 	}
 
 	return false
+}
 
+func (ce *CacheEntry) isExact() bool {
+	if ce.etype == exactType {
+		return true
+	}
+	return false
 }
