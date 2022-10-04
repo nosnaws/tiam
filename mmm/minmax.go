@@ -354,6 +354,14 @@ func minmaxHeuristic(board *b.FastBoard, maxId, minId b.SnakeId, depth int) floa
 		//total += float64(-enemyDepth)
 	} else if foodDepth != -1 {
 		total += float64(-foodDepth)
+	} else {
+		food := findBF(board, int(board.Heads[maxId]), func(t b.Tile) bool {
+			return t.IsFood()
+		})
+
+		if food != -1 {
+			total += float64(-food)
+		}
 	}
 	// if we are near a hazard, that's not the best
 	if hNeighbors := board.GetHazardNeighbors(board.Heads[maxId]); len(hNeighbors) > 0 {
