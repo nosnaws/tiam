@@ -5,10 +5,9 @@ import (
 	z "github.com/nosnaws/tiam/zobrist"
 )
 
-// small size 10067
-// larger size 102197
-// largerer size 1000003 - about 200 MBs
-const tableSize uint64 = 1000003 // prime numbers are better apparently
+// medium size 1000003 - about 200 MBs
+// larger size 3000017
+const tableSize uint64 = 3000017 // prime numbers are better apparently
 
 type Cache struct {
 	m       [tableSize]CacheEntry

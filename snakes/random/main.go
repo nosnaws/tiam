@@ -10,14 +10,13 @@ import (
 	"strconv"
 
 	"github.com/newrelic/go-agent/v3/newrelic"
-	"github.com/nosnaws/tiam/brain"
-	fastGame "github.com/nosnaws/tiam/game"
+	api "github.com/nosnaws/tiam/battlesnake"
 	instru "github.com/nosnaws/tiam/instrumentation"
 )
 
 const ServerID = "nosnaws/tiam"
 
-func recordLatency(app *newrelic.Application, state fastGame.GameState) {
+func recordLatency(app *newrelic.Application, state api.GameState) {
 	latency, err := strconv.ParseFloat(state.You.Latency, 64)
 	if err == nil {
 		app.RecordCustomMetric("lastTurnLatency", latency)
@@ -40,7 +39,7 @@ func HandleIndex(app *newrelic.Application) http.HandlerFunc {
 
 func HandleStart(app *newrelic.Application) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		state := fastGame.GameState{}
+		state := api.GameState{}
 		err := json.NewDecoder(r.Body).Decode(&state)
 		if err != nil {
 			log.Printf("ERROR: Failed to decode start json, %s", err)
@@ -53,9 +52,9 @@ func HandleStart(app *newrelic.Application) http.HandlerFunc {
 	}
 }
 
-func HandleMove(app *newrelic.Application, config *brain.MCTSConfig) http.HandlerFunc {
+func HandleMove(app *newrelic.Application) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
-		state := fastGame.GameState{}
+		state := api.GameState{}
 		err := json.NewDecoder(r.Body).Decode(&state)
 		if err != nil {
 			log.Printf("ERROR: Failed to decode move json, %s", err)
@@ -68,7 +67,7 @@ func HandleMove(app *newrelic.Application, config *brain.MCTSConfig) http.Handle
 		//recordLatency(app, state)
 		txn.AddAttribute("lastTurnLatency", state.You.Latency)
 
-		response := move(state, config, txn)
+		response := move(state)
 
 		w.Header().Set("Content-Type", "application/json")
 		err = json.NewEncoder(w).Encode(response)
@@ -82,7 +81,7 @@ func HandleMove(app *newrelic.Application, config *brain.MCTSConfig) http.Handle
 func HandleEnd(app *newrelic.Application) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 
-		state := fastGame.GameState{}
+		state := api.GameState{}
 		err := json.NewDecoder(r.Body).Decode(&state)
 		if err != nil {
 			log.Printf("ERROR: Failed to decode end json, %s", err)
@@ -110,37 +109,6 @@ func withServerID(next http.HandlerFunc) http.HandlerFunc {
 	}
 }
 
-func parseEnv() *brain.MCTSConfig {
-	exploration, err := strconv.ParseFloat(os.Getenv("EXPLORATION_CONSTANT"), 64)
-	if err != nil {
-		log.Println("EXPLORATION_CONSTANT not set, defaulting")
-		exploration = 2.0
-	}
-	alpha, err := strconv.ParseFloat(os.Getenv("ALPHA_CONSTANT"), 64)
-	if err != nil {
-		log.Println("ALPHA_CONSTANT not set, defaulting")
-		alpha = 0.1
-	}
-	voronoi, err := strconv.ParseFloat(os.Getenv("VORONOI_CONSTANT"), 64)
-	if err != nil {
-		log.Println("VORONOI_CONSTANT not set, defaulting")
-		voronoi = 0.5
-	}
-	food, err := strconv.ParseFloat(os.Getenv("FOOD_CONSTANT"), 64)
-	if err != nil {
-		log.Println("FOOD_CONSTANT not set, defaulting")
-		food = 0.1
-	}
-
-	return &brain.MCTSConfig{
-		ExplorationConstant: exploration,
-		AlphaConstant:       alpha,
-		VoronoiWeighting:    voronoi,
-		FoodWeighting:       food,
-	}
-
-}
-
 // Main Entrypoint
 
 func main() {
@@ -158,11 +126,9 @@ func main() {
 		newrelic.ConfigLicense(nrLicenseKey),
 	)
 
-	config := parseEnv()
-
 	http.HandleFunc(newrelic.WrapHandleFunc(app, "/", withServerID(HandleIndex(app))))
 	http.HandleFunc(newrelic.WrapHandleFunc(app, "/start", withServerID(HandleStart(app))))
-	http.HandleFunc(newrelic.WrapHandleFunc(app, "/move", withServerID(HandleMove(app, config))))
+	http.HandleFunc(newrelic.WrapHandleFunc(app, "/move", withServerID(HandleMove(app))))
 	http.HandleFunc(newrelic.WrapHandleFunc(app, "/end", withServerID(HandleEnd(app))))
 
 	log.Printf("Starting Battlesnake Server at http://0.0.0.0:%s...\n", port)

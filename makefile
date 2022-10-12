@@ -21,11 +21,17 @@ build_random:
 build_eater:
 	docker build -t eater -f "Dockerfile.eater" .
 
+build_huey:
+	docker build -t huey -f "Dockerfile.huey" .
+
 build_mini:
 	docker build -t mini -f "Dockerfile.mini" .
 
 run_mini:
 	go run ./snakes/mini/
+
+run_huey:
+	go run ./snakes/huey/
 
 build_all: build build_random build_eater
 

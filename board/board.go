@@ -351,6 +351,31 @@ func (b *FastBoard) GetMovesForSnakeNoDefault(id SnakeId) []SnakeMove {
 	return possibleMoves
 }
 
+func (b *FastBoard) GetNeighborsUnsafe(index uint16) []Move {
+	possibleMoves := make([]Move, 0, 4)
+
+	for _, dir := range allMoves {
+		dirPoint := b.pointInDirection(dir, index)
+		isOutOfBounds := b.isOffBoard(dirPoint)
+		if isOutOfBounds {
+			continue
+		}
+
+		dirIndex := pointToIndex(dirPoint, b.Width)
+		if b.isTileHazard(dirIndex) && b.hazardDamage >= 100 {
+			continue
+		}
+
+		if b.isTileSnakeSegment(dirIndex) && !b.isTileUnSafeTail(dirIndex) {
+			continue
+		}
+
+		possibleMoves = append(possibleMoves, dir)
+	}
+
+	return possibleMoves
+}
+
 func (b *FastBoard) GetNeighbors(index uint16) []Move {
 	possibleMoves := make([]Move, 0, 4)
 
@@ -371,6 +396,31 @@ func (b *FastBoard) GetNeighbors(index uint16) []Move {
 		}
 
 		possibleMoves = append(possibleMoves, dir)
+	}
+
+	return possibleMoves
+}
+
+func (b *FastBoard) GetNeighborIndices(index uint16) []uint16 {
+	possibleMoves := make([]uint16, 0, 4)
+
+	for _, dir := range allMoves {
+		dirPoint := b.pointInDirection(dir, index)
+		isOutOfBounds := b.isOffBoard(dirPoint)
+		if isOutOfBounds {
+			continue
+		}
+
+		dirIndex := pointToIndex(dirPoint, b.Width)
+		if b.isTileHazard(dirIndex) && b.hazardDamage >= 100 {
+			continue
+		}
+
+		if b.isTileSnakeSegment(dirIndex) && !b.isTileSafeTail(dirIndex) {
+			continue
+		}
+
+		possibleMoves = append(possibleMoves, dirIndex)
 	}
 
 	return possibleMoves
@@ -494,6 +544,18 @@ func (b *FastBoard) isTileSafeTail(index uint16) bool {
 		tailIndex := b.List[headIndex].GetIdx()
 
 		return tailIndex == index && !b.List[tailIndex].IsDoubleStack()
+	}
+
+	return false
+}
+
+func (b *FastBoard) isTileUnSafeTail(index uint16) bool {
+	id, ok := b.GetSnakeIdAtTile(index)
+	if ok {
+		headIndex := b.Heads[id]
+		tailIndex := b.List[headIndex].GetIdx()
+
+		return tailIndex == index
 	}
 
 	return false

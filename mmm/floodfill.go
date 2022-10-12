@@ -51,7 +51,7 @@ func floodfill(board *b.FastBoard, startIndex, depth int, search []uint16) (int,
 	return len(visited), foodDepth, searchDepth
 }
 
-func findBF(board *b.FastBoard, startIndex int, testerFn func(b.Tile) bool) int {
+func findBF(board *b.FastBoard, startIndex int, testerFn func(int) bool) int {
 	queue := []int{}
 	visited := make(map[int]bool)
 
@@ -81,12 +81,12 @@ func findBF(board *b.FastBoard, startIndex int, testerFn func(b.Tile) bool) int 
 			if !visited[current] {
 				visited[current] = true
 
-				if testerFn(board.List[current]) && searchDepth == -1 {
+				if testerFn(current) && searchDepth == -1 {
 					searchDepth = currentDepth
 				}
 
 				index := uint16(current)
-				for _, n := range board.GetNeighbors(index) {
+				for _, n := range board.GetNeighborsUnsafe(index) {
 					i := b.IndexInDirection(n, index, board.Width, board.Height, board.IsWrapped)
 					queue = append(queue, int(i))
 				}

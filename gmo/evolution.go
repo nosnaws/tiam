@@ -5,18 +5,20 @@ import (
 	"fmt"
 	"log"
 	"math/rand"
+	"os"
 	"sort"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
 
-// [0] = exploration constant
-// [1] = alpha
-// [2] = vorornoi weighting
-// [3] = food/health weighting a
-// [4] = food/health weighting b
-// [5] = biggest snake reward
-type genotype [6]float64
+// [0] = food/health weighting a
+// [1] = food/health weighting b
+// [2] = vorornoi weighting a
+// [3] = vorornoi weighting b
+// [4] = length weight
+type genotype [5]float64
 
 type canditate struct {
 	geno      []float64
@@ -38,13 +40,13 @@ type unnaturalSelection struct {
 }
 
 var randomSnake = canditate{
-	geno:      []float64{0, 0, 0, 0, 0, 0},
+	geno:      []float64{0, 0, 0, 0, 0},
 	name:      "random_snake",
 	imageName: "random",
 }
 
 var eaterSnake = canditate{
-	geno:      []float64{0, 0, 0, 0, 0, 0},
+	geno:      []float64{0, 0, 0, 0, 0},
 	name:      "eater_snake",
 	imageName: "eater",
 }
@@ -68,7 +70,8 @@ func CreateEvolution(gens, popSize, numParents, roundLength int, mutConst, mutPr
 
 func (u *unnaturalSelection) Evolve(ctx context.Context) {
 	// initialize the population
-	initialPop := u.initializePopulation()
+	//initialPop := u.initializePopulation()
+	initialPop := u.initializePopFromCSV("/Users/aswanson/dev/innovation/tiam/save_gen_40.csv")
 	u.currentPop = initialPop
 	fmt.Println("initial pop ", initialPop)
 
@@ -124,15 +127,55 @@ func (u *unnaturalSelection) initializePopulation() []canditate {
 		cand := canditate{
 			name: genRandomName(),
 			geno: []float64{
-				rand.Float64() * float64(rand.Intn(100)), // Exploration
-				rand.Float64(),                           // alpha
-				rand.Float64() * float64(rand.Intn(10)),  // voronoi
-				rand.Float64() * float64(rand.Intn(100)), // food a
-				rand.Float64() * float64(rand.Intn(100)), // food b
-				rand.Float64() * float64(rand.Intn(100)), // big snake reward
+				rand.Float64() * float64(rand.Intn(10)), // food a
+				rand.Float64() * float64(rand.Intn(10)), // food a
+				rand.Float64() * float64(rand.Intn(10)), // v a
+				rand.Float64() * float64(rand.Intn(10)), // v b
+				rand.Float64() * float64(rand.Intn(10)), // big snake reward
 			},
-			imageName: "tiam",
+			imageName: "huey",
 		}
+		pop = append(pop, cand)
+	}
+
+	return pop
+}
+
+func (u *unnaturalSelection) initializePopFromCSV(path string) []canditate {
+	file, err := os.ReadFile(path)
+	if err != nil {
+		log.Fatalln("Unable to read initialization file", path)
+	}
+
+	contents := string(file)
+	rows := strings.Split(contents, "\n")
+	rows = rows[1:]           // remove the header row
+	rows = rows[:len(rows)-1] // remove the empty last line
+
+	fmt.Println(len(rows))
+	pop := []canditate{}
+	for _, row := range rows {
+		columns := strings.Split(row, ",")
+		fmt.Println(columns, len(columns))
+		// columns[1] is the fitness score
+
+		g1, _ := strconv.ParseFloat(columns[2], 64)
+		g2, _ := strconv.ParseFloat(columns[3], 64)
+		g3, _ := strconv.ParseFloat(columns[4], 64)
+		g4, _ := strconv.ParseFloat(columns[5], 64)
+		g5, _ := strconv.ParseFloat(columns[6], 65)
+		cand := canditate{
+			name: columns[0],
+			geno: []float64{
+				g1,
+				g2,
+				g3,
+				g4,
+				g5,
+			},
+			imageName: "huey",
+		}
+
 		pop = append(pop, cand)
 	}
 
@@ -145,7 +188,7 @@ func (u *unnaturalSelection) selection(ctx context.Context) (canditate, map[stri
 	candidateSets := createGroups(u.currentPop)
 	scores := make(map[string]int)
 	for i, candidateSet := range candidateSets {
-		fmt.Println("running group ", i, candidateSet)
+		log.Println("running group ", i, candidateSet)
 		results := u.fitness(ctx, candidateSet)
 
 		scores[candidateSet[0].name] = results[0]
@@ -239,10 +282,12 @@ func (u *unnaturalSelection) fitness(ctx context.Context, candidates []canditate
 	}
 
 	game := game{
-		players: []player{player1, player2, extra1, extra2},
-		mapName: "standard",
-		height:  11,
-		width:   11,
+		players:  []player{player1, player2, extra1, extra2},
+		mapName:  "hz_islands_bridges",
+		gameType: "wrapped",
+		hzDamage: 100,
+		height:   11,
+		width:    11,
 	}
 
 	var wg sync.WaitGroup
@@ -251,7 +296,7 @@ func (u *unnaturalSelection) fitness(ctx context.Context, candidates []canditate
 	scores := [2]int{}
 	var mutex = &sync.RWMutex{}
 	for i := 0; i < u.roundLength; i++ {
-		fmt.Println("Starting game ", i)
+		log.Println("Starting game ", i)
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
@@ -268,7 +313,7 @@ func (u *unnaturalSelection) fitness(ctx context.Context, candidates []canditate
 	}
 
 	wg.Wait()
-	fmt.Println("Finished group")
+	log.Println("Finished group")
 
 	return scores
 }
@@ -277,7 +322,7 @@ func (u *unnaturalSelection) crossover(canA, canB canditate) []canditate {
 	rand.Seed(time.Now().UnixNano())
 	// Return the original candidates if crossover is not performed
 	if rand.Float64() > u.crossoverProbability {
-		fmt.Println("No crossover, keeping genotype from parents")
+		log.Println("No crossover, keeping genotype from parents")
 		return []canditate{
 			{
 				name:      genRandomName(),
@@ -292,8 +337,8 @@ func (u *unnaturalSelection) crossover(canA, canB canditate) []canditate {
 		}
 	}
 
-	fmt.Println("Crossover ", canA.name, canB.name)
-	crossOverPoint := rand.Intn(6)
+	log.Println("Crossover ", canA.name, canB.name)
+	crossOverPoint := rand.Intn(5)
 
 	partA1, partA2 := canA.geno[:crossOverPoint], canA.geno[crossOverPoint:]
 	partB1, partB2 := canB.geno[:crossOverPoint], canB.geno[crossOverPoint:]
@@ -319,12 +364,12 @@ func (u *unnaturalSelection) mutate(cand canditate) canditate {
 	rand.Seed(time.Now().UnixNano())
 	// Return the original candidate if mutation is not performed
 	if rand.Float64() > u.mutationProbability {
-		fmt.Println("No mutation, keeping genotype for ", cand)
+		log.Println("No mutation, keeping genotype for ", cand)
 		return cand
 	}
 
-	fmt.Println("Mutating ", cand.name)
-	mutationPoint := rand.Intn(6)
+	log.Println("Mutating ", cand.name)
+	mutationPoint := rand.Intn(5)
 	mutationSign := rand.Intn(2)
 
 	if mutationSign == 0 {
@@ -361,12 +406,11 @@ func shuffle(cands []canditate) []canditate {
 }
 
 func genotypeToEnvVariables(g []float64) []string {
-	exploration := fmt.Sprintf("EXPLORATION_CONSTANT=%f", g[0])
-	alpha := fmt.Sprintf("ALPHA_CONSTANT=%f", g[1])
-	voronoi := fmt.Sprintf("VORONOI_CONSTANT=%f", g[2])
-	foodA := fmt.Sprintf("FOOD_CONSTANT_A=%f", g[3])
-	foodB := fmt.Sprintf("FOOD_CONSTANT_B=%f", g[3])
-	biggest := fmt.Sprintf("BIG_SNAKE_CONSTANT=%f", g[3])
+	foodA := fmt.Sprintf("FOOD_A=%f", g[0])
+	foodB := fmt.Sprintf("FOOD_B=%f", g[1])
+	vorA := fmt.Sprintf("VORONOI_A=%f", g[2])
+	vorB := fmt.Sprintf("VORONOI_B=%f", g[3])
+	length := fmt.Sprintf("LENGTH=%f", g[4])
 
-	return []string{exploration, alpha, voronoi, foodA, foodB, biggest}
+	return []string{foodA, foodB, vorA, vorB, length}
 }

@@ -63,3 +63,53 @@ func TestFloodfill(t *testing.T) {
 	}
 
 }
+
+func TestFloodfillFood(t *testing.T) {
+	//t.Skip()
+	// _ _ _ _ _
+	// s _ _ _ _
+	// s h _ _ _
+	// _ f _ e _
+	// _ _ _ s s
+	me := api.Battlesnake{
+		ID:     "me",
+		Health: 100,
+		Body: []api.Coord{
+			{1, 2},
+			{0, 2},
+			{0, 3},
+		},
+	}
+	two := api.Battlesnake{
+		ID:     "two",
+		Health: 100,
+		Body: []api.Coord{
+			{3, 1},
+			{3, 0},
+			{4, 0},
+		},
+	}
+	state := api.GameState{
+		Turn: 0,
+		Board: api.Board{
+			Snakes: []api.Battlesnake{me, two},
+			Height: 5,
+			Width:  5,
+			Food: []api.Coord{
+				{1, 1},
+			},
+		},
+		You: me,
+	}
+	board := b.BuildBoard(state)
+	id := board.Ids["me"]
+
+	ff, foodDepth, _ := floodfill(&board, int(board.Heads[id]), 11, []uint16{})
+
+	if foodDepth != 1 {
+		board.Print()
+		fmt.Println("food depth", ff)
+		panic("wrong food depth!")
+	}
+
+}

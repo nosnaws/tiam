@@ -55,7 +55,7 @@ func runGame(g game, visual bool) string {
 
 	output, err := command.CombinedOutput()
 	if err != nil {
-		fmt.Println("ERROR", string(output))
+		log.Println("ERROR", string(output))
 		log.Panic(err)
 	}
 
@@ -71,7 +71,7 @@ func parseWinner(out string) string {
 	}
 
 	winner := winnerRegex.FindStringSubmatch(out)
-	fmt.Println(winner)
+	log.Println(winner)
 
 	return winner[1]
 }

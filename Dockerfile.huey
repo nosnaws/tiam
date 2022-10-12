@@ -1,0 +1,18 @@
+FROM golang:alpine AS builder
+
+WORKDIR /build
+ADD go.mod .
+COPY . .
+
+RUN go build -o huey ./snakes/huey
+
+FROM alpine
+
+WORKDIR /opt
+COPY --from=builder /build/huey .
+
+EXPOSE 8080
+
+CMD ["./huey"]
+
+

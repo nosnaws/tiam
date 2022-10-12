@@ -31,8 +31,10 @@ func TestDeployDockerContainers(t *testing.T) {
 	//d.addContainer("tiam-test", "tiam", []string{})
 	//d.addContainer("mini-test", "mini", []string{})
 	d.addContainer("tiam-main", "tiam-main", headers)
-	d.addContainer("eater-test", "eater", headers)
+	//d.addContainer("huey", "huey", headers)
+	//d.addContainer("eater-test", "eater", headers)
 	d.addContainer("eater-test2", "eater", headers)
+	d.addContainer("random", "random", headers)
 
 	ctx := context.Background()
 	isSuccess := d.run(ctx)
@@ -54,28 +56,36 @@ func TestDeployDockerContainers(t *testing.T) {
 			//url:  "http://localhost:9090",
 			//},
 			{
-				name: "taim-main",
+				name: "tiam-main",
 				url:  "http://localhost:9091",
 			},
-			{
-				name: "eater-test",
-				url:  "http://localhost:9092",
-			},
+			//{
+			//name: "eater-test",
+			//url:  "http://localhost:9091",
+			//},
 			{
 				name: "eater-test2",
 				url:  "http://localhost:9092",
 			},
 			{
-				name: "tiam-test",
+				name: "random",
+				url:  "http://localhost:9093",
+			},
+			{
+				name: "huey",
 				url:  "http://localhost:8080",
 			},
+			//{
+			//name: "tiam-test",
+			//url:  "http://localhost:8080",
+			//},
 		},
 	}
 
 	scores := make(map[string]int)
 
 	inBrowser := true
-	numGames := 1
+	numGames := 10
 	for i := 0; i < numGames; i++ {
 		fmt.Println("Running game #", i)
 		out := runGame(g, inBrowser)
