@@ -340,6 +340,16 @@ func (b *FastBoard) GetMovesForSnake(id SnakeId) []SnakeMove {
 	return possibleMoves
 }
 
+func (b *FastBoard) GetAllFood() []uint16 {
+	food := []uint16{}
+	for i, t := range b.List {
+		if t.IsFood() {
+			food = append(food, uint16(i))
+		}
+	}
+	return food
+}
+
 func (b *FastBoard) GetMovesForSnakeNoDefault(id SnakeId) []SnakeMove {
 	var possibleMoves []SnakeMove
 	snakeHeadIndex := b.Heads[id]

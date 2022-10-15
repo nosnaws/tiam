@@ -85,8 +85,8 @@ func Voronoi(game *FastBoard, player SnakeId) voronoiResult {
 					//
 				} else {
 					//          increase the score for this neighbor by 1
-					territoryBonus := len(game.GetNeighbors(nIndex))
-					scores[current.id] += 1 + territoryBonus
+					//territoryBonus := len(game.GetNeighbors(nIndex))
+					scores[current.id] += 1
 					//          add neighbor to visited map
 					p := pair{id: current.id, index: nIndex}
 					visited[nIndex] = current.id

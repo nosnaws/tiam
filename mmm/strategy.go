@@ -9,15 +9,15 @@ import (
 type StrategyFn func(*b.FastBoard, b.SnakeId, b.SnakeId, int) float64
 
 func multiStrat(board *b.FastBoard, maxId, minId b.SnakeId, depth int) float64 {
-	evoStrat := GMOConfig{
-		FoodWeightA:    4.166351,
-		FoodWeightB:    3.785205,
-		VoronoiWeightA: 1.900364,
-		VoronoiWeightB: 1.150082,
-		LengthWeight:   2.334582,
-	}
-	return StrategyGMO(board, maxId, minId, depth, evoStrat)
-	//return StrategyV4(board, maxId, minId, depth)
+	//evoStrat := GMOConfig{
+	//FoodWeightA:    4.166351,
+	//FoodWeightB:    3.785205,
+	//VoronoiWeightA: 1.900364,
+	//VoronoiWeightB: 1.150082,
+	//LengthWeight:   2.334582,
+	//}
+	//return StrategyGMO(board, maxId, minId, depth, evoStrat)
+	return StrategyHungry(board, maxId, minId, depth)
 }
 
 func StrategyV1(board *b.FastBoard, maxId, minId b.SnakeId, depth int) float64 {
@@ -339,6 +339,120 @@ func StrategyGMO(board *b.FastBoard, maxId, minId b.SnakeId, depth int, gmo GMOC
 	total += gmo.LengthWeight * (maxLength - minLength)
 	total += gmo.FoodWeightA * math.Atan(health-fd) / gmo.FoodWeightB
 	total += gmo.VoronoiWeightA * (maxV - minV) / gmo.VoronoiWeightB
+
+	return total
+}
+
+func StrategyGMO2(board *b.FastBoard, maxId, minId b.SnakeId, depth int) float64 {
+	if isDeadOrOut(board, maxId) {
+		return float64(-10000 * (depth + 1))
+	}
+
+	if isDeadOrOut(board, minId) || board.IsGameOver() {
+		return float64(10000 * (depth + 1))
+	}
+
+	voronoi := b.Voronoi(board, maxId)
+	space, _, minDis := floodfill(board, int(board.Heads[maxId]), 20, []uint16{board.Heads[minId]})
+	arts := getArticulationPoints(board, board.Heads[maxId])
+
+	total := 0.0
+
+	maxV := float64(voronoi.Score[maxId])
+
+	fd := float64(voronoi.FoodDepth[maxId])
+	if fd == -1 {
+		fd = 0
+	}
+
+	for _, a := range arts {
+		if voronoi.Territory[a] == maxId {
+			total += 10
+		}
+	}
+	total += float64(minDis)
+	total += 1 * float64(space)
+	total += 2 * -fd
+	total += 1 * maxV
+
+	return total
+}
+
+func StrategyHungry(board *b.FastBoard, maxId, minId b.SnakeId, depth int) float64 {
+	if isDeadOrOut(board, maxId) {
+		return float64(-10000 * (depth + 1))
+	}
+
+	if isDeadOrOut(board, minId) || board.IsGameOver() {
+		return float64(10000 * (depth + 1))
+	}
+
+	length := int(board.Lengths[maxId])
+	minLength := int(board.Lengths[minId])
+	head := board.Heads[maxId]
+	voronoi := b.Voronoi(board, maxId)
+	maxV := float64(voronoi.Score[maxId])
+	if length < 4 {
+		maxV /= 10
+	}
+	//space, _, _ := floodfill(board, int(board.Heads[maxId]), length*2, []uint16{board.Heads[minId]})
+	//arts := getArticulationPoints(board, board.Heads[maxId])
+	health := float64(board.Healths[maxId])
+	allFood := board.GetAllFood()
+	totalFood := float64(len(allFood))
+	tail := board.GetSnakeTail(maxId)
+	tailDistance := findBFUnsafe(board, int(head), func(i int) bool {
+		return uint16(i) == tail
+	})
+
+	//isFirstEat := board.Lengths[maxId] < 4
+
+	total := 0.0
+	foodDistances := findAllBF(board, int(head), func(i int) bool {
+		return board.IsTileFood(uint16(i))
+	})
+	//isFoodInCell := len(foodDistances) > 0
+
+	//fmt.Println("food", foodDistances)
+	//fmt.Println("voronoi", voronoi.Score[maxId])
+	foodScore := 0.0
+	for _, d := range foodDistances {
+		if voronoi.Territory[d.Index] == maxId {
+			foodScore += float64(d.Depth)
+		}
+	}
+	if foodScore == 0.0 {
+		for _, d := range foodDistances {
+			foodScore += float64(d.Depth)
+		}
+	}
+	if length-minLength < 2 {
+		foodScore /= 4
+	}
+
+	foodTotal := (50 / (float64(foodScore) + 1 + totalFood))
+	healthWeight := health / 2
+	total += foodTotal / (healthWeight)
+
+	//fd := float64(voronoi.FoodDepth[maxId])
+	//if fd == -1 {
+	//fd = 0
+	//}
+	//total += -fd
+
+	//for _, a := range arts {
+	//if voronoi.Territory[a] == maxId {
+	//total += 10
+	//}
+	//}
+	//total += float64(minDis)
+	//total += 1 * float64(space)
+	//total += 2 * -fd
+	total = (total + 1) * (maxV)
+	if tailDistance == -1 {
+		//fmt.Println("COULD NOT FIND TAIL")
+		total += float64(-500 * (depth + 1))
+	}
 
 	return total
 }
