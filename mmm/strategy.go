@@ -457,9 +457,7 @@ func StrategyHungry(board *b.FastBoard, maxId, minId b.SnakeId, depth int) float
 			}
 		}
 		if !isFoodClose {
-			for _, d := range foodDistances {
-				foodScore += float64(d.Depth)
-			}
+			foodScore += float64(voronoi.FoodDepth[maxId])
 		}
 		//if length-minLength < 2 {
 		//foodScore /= 4
