@@ -156,6 +156,7 @@ func TestVoronoi(t *testing.T) {
 }
 
 func TestVoronoiScore(t *testing.T) {
+	t.Skip()
 	// z z h e z z z _ _ z z
 	// z e e e _ z _ _ _ _ z
 	// _ e e s s s s _ _ _ _

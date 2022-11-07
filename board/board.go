@@ -149,6 +149,8 @@ func BuildBoard(state b.GameState) FastBoard {
 func (b *FastBoard) AdvanceBoard(moves map[SnakeId]Move) {
 	deadSnakes := make([]SnakeId, len(b.Heads))
 
+	//fmt.Println("MOVES", moves)
+	//b.validateState()
 	// do damage food and stuff
 	for id, dir := range moves {
 		if dir == "" {
@@ -192,15 +194,9 @@ func (b *FastBoard) AdvanceBoard(moves map[SnakeId]Move) {
 			if moveTile.IsSnakeSegment() {
 				snakeTailIndex := b.List[b.Heads[moveTile.id]].GetIdx()
 				isNonTailSegment := newIndex != snakeTailIndex
-				didSnakeEat := false
+				isUnsafe := isNonTailSegment || moveTile.IsDoubleStack()
 
-				snakeDir := moves[moveTile.id]
-				snakeNewHead := pointInDirection(snakeDir, b.Heads[moveTile.id], b.Width, b.Height, b.IsWrapped)
-				if !b.isOffBoard(snakeNewHead) {
-					didSnakeEat = b.List[pointToIndex(snakeNewHead, b.Width)].IsFood()
-				}
-
-				if isNonTailSegment || didSnakeEat {
+				if isUnsafe {
 					isDead = true
 				}
 			}
@@ -304,6 +300,10 @@ func (b *FastBoard) AdvanceBoard(moves map[SnakeId]Move) {
 		}
 		b.Heads[id] = newIndex
 	}
+
+	//fmt.Println("FINISHED")
+	//b.Print()
+	//b.validateState()
 }
 
 func (b *FastBoard) kill(id SnakeId) {
@@ -313,7 +313,7 @@ func (b *FastBoard) kill(id SnakeId) {
 
 	if b.List[headIndex].IsTripleStack() {
 		b.clearTile(headIndex)
-	} else if b.List[tailIndex].IsDoubleStack() {
+	} else if b.List[tailIndex].IsDoubleStack() && b.Lengths[id] == 4 {
 		b.clearTile(tailIndex)
 		b.clearTile(headIndex)
 	} else {
@@ -329,6 +329,31 @@ func (b *FastBoard) kill(id SnakeId) {
 	b.Lengths[id] = 0
 	b.Healths[id] = 0
 	b.Heads[id] = 0
+}
+
+func (b *FastBoard) validateState() {
+	for id, in := range b.Heads {
+		if !b.IsSnakeAlive(id) {
+			if b.Heads[id] != 0 {
+				//b.Print()
+				panic("BAD DEAD SNAKE")
+			}
+		} else if !b.List[in].IsTripleStack() {
+			seen := make(map[uint16]bool)
+			head := b.Heads[id]
+			tail := b.List[head].GetIdx()
+
+			currentI := tail
+			for currentI != head {
+				if seen[currentI] {
+					//b.Print()
+					panic("BROKEN SNAKE STATE")
+				}
+				seen[currentI] = true
+				currentI = b.List[currentI].GetIdx()
+			}
+		}
+	}
 }
 
 func (b *FastBoard) GetMovesForSnake(id SnakeId) []SnakeMove {
@@ -495,6 +520,16 @@ func (b *FastBoard) GetSnakeNeck(id SnakeId) uint16 {
 		}
 		return lastIndex
 	}
+}
+
+func (b *FastBoard) GetOtherLivingSnakes() []SnakeId {
+	alive := []SnakeId{}
+	for id := range b.Heads {
+		if b.IsSnakeAlive(id) && id != MeId {
+			alive = append(alive, id)
+		}
+	}
+	return alive
 }
 
 func (b *FastBoard) setTileSnakeTripleStack(index uint16, id SnakeId) {

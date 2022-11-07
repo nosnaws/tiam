@@ -7,6 +7,114 @@ import (
 	"testing"
 )
 
+func createIslandBridgesGame() b.GameState {
+
+	islandBridgesHz := []b.Coord{
+		{X: 0, Y: 1},
+		{X: 0, Y: 0},
+		{X: 1, Y: 0},
+		{X: 4, Y: 0},
+		{X: 5, Y: 0},
+		{X: 5, Y: 1},
+		{X: 6, Y: 0},
+		{X: 9, Y: 0},
+		{X: 10, Y: 0},
+		{X: 10, Y: 1},
+		{X: 10, Y: 4},
+		{X: 9, Y: 5},
+		{X: 10, Y: 5},
+		{X: 10, Y: 6},
+		{X: 10, Y: 9},
+		{X: 10, Y: 10},
+		{X: 9, Y: 10},
+		{X: 6, Y: 10},
+		{X: 5, Y: 10},
+		{X: 5, Y: 9},
+		{X: 4, Y: 10},
+		{X: 1, Y: 10},
+		{X: 0, Y: 10},
+		{X: 0, Y: 9},
+		{X: 0, Y: 6},
+		{X: 0, Y: 5},
+		{X: 1, Y: 5},
+		{X: 0, Y: 4},
+		{X: 2, Y: 4},
+		{X: 3, Y: 5},
+		{X: 4, Y: 5},
+		{X: 5, Y: 5},
+		{X: 6, Y: 5},
+		{X: 7, Y: 5},
+		{X: 5, Y: 7},
+		{X: 5, Y: 6},
+		{X: 5, Y: 5},
+		{X: 5, Y: 4},
+		{X: 5, Y: 3},
+	}
+	state := b.GameState{
+		Turn: 0,
+		Board: b.Board{
+			Height:  11,
+			Width:   11,
+			Hazards: islandBridgesHz,
+		},
+		Game: b.Game{
+			Ruleset: b.Ruleset{
+				Name: "wrapped",
+				Settings: b.Settings{
+					HazardDamagePerTurn: 100,
+				},
+			},
+		},
+	}
+
+	return state
+}
+
+func TestCantMoveBackOnNeck(t *testing.T) {
+	//t.Skip()
+	// x x _ _ x x x _ e x x
+	// x _ _ _ _ x _ s s _ x
+	// _ _ _ _ _ _ _ _ _ _ _
+	// _ _ _ _ _ x _ _ _ _ _
+	// x _ _ _ _ x _ _ _ _ x
+	// x x _ x x x x x _ x x
+	// x _ _ _ _ x _ _ _ _ x
+	// _ _ _ _ _ x _ _ _ _ _
+	// _ _ _ _ _ _ _ _ _ _ _
+	// x _ _ _ _ x _ s s _ x
+	// x x _ _ x x x _ h x x
+	me := b.Battlesnake{
+		ID:     "me",
+		Health: 100,
+		Body: []b.Coord{
+			{X: 8, Y: 0},
+			{X: 8, Y: 1},
+			{X: 7, Y: 1},
+		},
+	}
+	two := b.Battlesnake{
+		ID:     "two",
+		Health: 100,
+		Body: []b.Coord{
+			{X: 8, Y: 10},
+			{X: 8, Y: 9},
+			{X: 7, Y: 9},
+		},
+	}
+	state := createIslandBridgesGame()
+	state.Board.Snakes = []b.Battlesnake{me, two}
+	board := BuildBoard(state)
+	cart := GetCartesianProductOfMoves(&board)
+	//moves := board.GetMovesForSnake(MeId)
+
+	if len(cart) != 2 {
+		board.Print()
+		fmt.Println(cart)
+		panic("Should only have 1 moves!")
+	}
+
+}
+
 func TestGetMovesForSnake(t *testing.T) {
 	//t.Skip()
 	// _ _ _ _ _ s s s s s _
@@ -1203,7 +1311,7 @@ func TestAdvanceBoardFollowTail(t *testing.T) {
 	enemy = b.Battlesnake{
 		ID:     "enemy",
 		Health: 100,
-		Body:   []b.Coord{{X: 1, Y: 2}, {X: 2, Y: 2}, {X: 2, Y: 1}},
+		Body:   []b.Coord{{X: 1, Y: 2}, {X: 2, Y: 2}, {X: 2, Y: 1}, {X: 2, Y: 1}},
 	}
 	state = b.GameState{
 		Turn: 4,
@@ -1583,7 +1691,7 @@ func TestCartesianProduct(t *testing.T) {
 	_ = json.Unmarshal(g, &state)
 
 	b := BuildBoard(state)
-	states := GetCartesianProductOfMoves(b)
+	states := GetCartesianProductOfMoves(&b)
 	if len(states) != 1 {
 		panic("Did not get correct states!")
 	}

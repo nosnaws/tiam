@@ -90,7 +90,7 @@ func TestRandomCartesianProductWrapped(t *testing.T) {
 	}
 	board := BuildBoard(state)
 
-	cartMoves := GetCartesianProductOfMoves(board)
+	cartMoves := GetCartesianProductOfMoves(&board)
 
 	if len(cartMoves) != 256 {
 		fmt.Println("total moves ", len(cartMoves))
@@ -127,7 +127,7 @@ func TestRandomCartesianProduct(t *testing.T) {
 	}
 	board := BuildBoard(state)
 
-	cartMoves := GetCartesianProductOfMoves(board)
+	cartMoves := GetCartesianProductOfMoves(&board)
 
 	if len(cartMoves) != 4 {
 		fmt.Println("total moves ", len(cartMoves))

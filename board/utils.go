@@ -89,10 +89,10 @@ func isSnakeDoubleButt(s b.Battlesnake) bool {
 	return tail == beforeTail
 }
 
-func GetCartesianProductOfMoves(board FastBoard) [][]SnakeMove {
+func GetCartesianProductOfMoves(board *FastBoard) [][]SnakeMove {
 	var allMoves [][]SnakeMove
-	for id, h := range board.Healths {
-		if h > 0 {
+	for id := range board.Healths {
+		if board.IsSnakeAlive(id) {
 			moves := board.GetMovesForSnake(id)
 			allMoves = append(allMoves, moves)
 		}
