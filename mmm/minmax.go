@@ -6,6 +6,7 @@ import (
 	"math"
 	"math/rand"
 	"sort"
+	"sync"
 	"time"
 
 	b "github.com/nosnaws/tiam/board"
@@ -19,6 +20,85 @@ type mmNode struct {
 func MultiMMLimited(board *b.FastBoard, depth int, strat StrategyFn) (b.Move, float64) {
 	m, score, _ := MultiMinmax(context.TODO(), nil, board, strat, depth, "")
 	return m, score
+}
+
+type runnerResult struct {
+	depth  int
+	score  float64
+	move   b.Move
+	ignore bool
+}
+
+func MultiMinmaxThreaded(board *b.FastBoard, cache *Cache) b.Move {
+	currentDepth := 0
+
+	// current issue, if it gets to a deep enough depth, it won't return in time
+	ctx, cancel := context.WithTimeout(context.Background(), time.Millisecond*350)
+	defer cancel()
+
+	//startTime := time.Now().UnixMilli()
+
+	lastBestMove := b.Move("")
+	//lastBestScore := math.Inf(-1)
+
+	if cache == nil {
+		cache = CreateCache(board, currentDepth)
+	}
+
+	strategy := multiStrat
+	bestDepth := 0
+
+mmloop:
+	for {
+		select {
+		case <-ctx.Done():
+			break mmloop
+		default:
+			cache.setCurMax(currentDepth)
+
+			if currentDepth > 500 {
+				fmt.Println("CUTTING OFF")
+				break mmloop
+			}
+
+			numWorkers := 2
+			results := make(chan runnerResult, numWorkers)
+			wg := sync.WaitGroup{}
+
+			for i := 0; i < numWorkers; i++ {
+				wg.Add(1)
+				currentDepth += 2
+				go func(d int) {
+					fmt.Println("RUNNING ITERATION", d)
+					newMove, newScore, ignoreScore := MultiMinmax(ctx, cache, board, strategy, d, lastBestMove)
+					fmt.Println("ITERATION RESULTS", newMove, newScore)
+					results <- runnerResult{
+						depth:  d,
+						score:  newScore,
+						move:   newMove,
+						ignore: ignoreScore,
+					}
+					wg.Done()
+				}(currentDepth)
+			}
+			wg.Wait()
+			close(results)
+
+			bestD := 0
+			for result := range results {
+				if !result.ignore && result.depth > bestD {
+					fmt.Println("UPDATING BEST")
+					bestD = result.depth
+					bestDepth = bestD
+					lastBestMove = result.move
+					//lastBestScore = newScore
+				}
+			}
+		}
+	}
+	fmt.Println("OVERALL BEST DEPTH", bestDepth)
+
+	return lastBestMove
 }
 
 func MultiMinmaxID(board *b.FastBoard, cache *Cache) b.Move {

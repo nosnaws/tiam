@@ -47,7 +47,8 @@ func determineMove(ctx context.Context, state api.GameState) b.Move {
 	//move := b.BRS(&board, g.Left, 8, math.Inf(-1), math.Inf(1), true)
 	//move := b.IDBRS(ctx, &board)
 	//move, _ := min.MultiMinmax(&board, 12)
-	move := min.MultiMinmaxID(&board, cache)
+	//move := min.MultiMinmaxID(&board, cache)
+	move := min.MultiMinmaxThreaded(&board, cache)
 
 	return move
 }

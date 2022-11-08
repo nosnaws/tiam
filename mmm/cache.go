@@ -1,15 +1,18 @@
 package mmm
 
 import (
+	"sync"
+
 	"github.com/nosnaws/tiam/board"
 	z "github.com/nosnaws/tiam/zobrist"
 )
 
 // medium size 1000003 - about 200 MBs
 // larger size 3000017
-const tableSize uint64 = 3000017 // prime numbers are better apparently
+const tableSize uint64 = 1000003 // prime numbers are better apparently
 
 type Cache struct {
+	mut     sync.RWMutex
 	m       [tableSize]CacheEntry
 	hasher  z.ZobristTable
 	curMax  int
@@ -37,6 +40,8 @@ func (c *Cache) getIndex(k z.Key) uint64 {
 }
 
 func (c *Cache) getEntry(b *board.FastBoard, minId board.SnakeId, depth int) (*CacheEntry, bool) {
+	c.mut.Lock()
+	defer c.mut.Unlock()
 	key := z.GetZobristKey(c.hasher, b)
 	adjDepth := c.curMax - depth
 	index := c.getIndex(key)
@@ -71,6 +76,8 @@ func (c *Cache) addExact(b *board.FastBoard, value float64, id board.SnakeId, de
 }
 
 func (c *Cache) addEntry(b *board.FastBoard, value float64, id board.SnakeId, depth int, eType entryType) {
+	c.mut.Lock()
+	defer c.mut.Unlock()
 	key := z.GetZobristKey(c.hasher, b)
 	index := c.getIndex(key)
 	adjDepth := c.curMax - depth
