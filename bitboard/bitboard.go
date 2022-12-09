@@ -6,8 +6,6 @@ import (
 	api "github.com/nosnaws/tiam/battlesnake"
 )
 
-const MeId = 0
-
 // bitboard
 // use an array of uint64s to represent different parts of the game state
 // an array is needed because the standard 11x11 board does not fit into 64 bits
@@ -21,80 +19,178 @@ const MeId = 0
 //
 
 type SnakeMove struct {
-	id  int
-	dir Dir
+	Id  string
+	Dir Dir
 }
 
 type BitBoard struct {
-	food         *big.Int
-	hazards      *big.Int
-	snakes       []*snake
-	width        int
-	height       int
-	empty        *big.Int
-	hazardDamage int
-	isWrapped    bool
-	turn         int
+	food    *big.Int
+	hazards *big.Int
+	// I need to makes Snakes a map so that I can remove snakes when they die.
+	// Currently, removing a snake from the array could cause the ids of other snakes to change, since it's an array.
+	// By converting to a map, I can just use the ID from the API
+	// This way, when a snake dies and the API does not send that snake in the request, the state will match up with what I have in my tree since it is also being removed
+	Snakes          map[string]*snake
+	meId            string
+	width           int
+	height          int
+	empty           *big.Int
+	hazardDamage    int
+	hazardSpawnTime int
+	foodSpawnChance int
+	minimumFood     int
+	totalFood       int
+	isWrapped       bool
+	turn            int
 }
 
 func (bb *BitBoard) createEmptyBoard() *big.Int {
 	emptyBoard := big.NewInt(0)
 	emptyBoard.Not(emptyBoard)
 
-	for _, snake := range bb.snakes {
+	for _, snake := range bb.Snakes {
+		if !snake.IsAlive() {
+			continue
+		}
 		emptyBoard.Xor(emptyBoard, snake.board)
-	}
 
-	// TODO: make hazards valid moves
-	emptyBoard.Xor(emptyBoard, bb.hazards)
+		if !snake.stackedTail() {
+			emptyBoard.SetBit(emptyBoard, snake.getTailIndex(), 1)
+		}
+	}
 
 	return emptyBoard
 }
 
-func CreateBitBoard(state api.GameState) BitBoard {
+func CreateBitBoard(state api.GameState) *BitBoard {
 	me := createSnake(state.You, state.Board.Width)
-	snakes := []*snake{me}
+	snakes := make(map[string]*snake)
+	snakes[state.You.ID] = me
 
 	for _, snake := range state.Board.Snakes {
 		if snake.ID == state.You.ID {
 			continue
 		}
 
-		snakes = append(snakes, createSnake(snake, state.Board.Width))
+		snakes[snake.ID] = createSnake(snake, state.Board.Width)
 	}
 
-	foodBoard := big.NewInt(0)
-	for _, p := range state.Board.Food {
-		foodBoard.SetBit(foodBoard, getIndex(p, state.Board.Width), 1)
-	}
-
-	hazardsBoard := big.NewInt(0)
-	for _, p := range state.Board.Hazards {
-		hazardsBoard.SetBit(hazardsBoard, getIndex(p, state.Board.Width), 1)
-	}
+	foodBoard := createBoard(state.Board.Food, state.Board.Width)
+	hazardsBoard := createBoard(state.Board.Hazards, state.Board.Width)
 
 	bb := BitBoard{
-		food:         foodBoard,
-		hazards:      hazardsBoard,
-		snakes:       snakes,
-		width:        state.Board.Width,
-		height:       state.Board.Height,
-		hazardDamage: int(state.Game.Ruleset.Settings.HazardDamagePerTurn),
-		isWrapped:    state.Game.Ruleset.Name == "wrapped",
-		turn:         state.Turn,
+		food:            foodBoard,
+		hazards:         hazardsBoard,
+		Snakes:          snakes,
+		meId:            state.You.ID,
+		width:           state.Board.Width,
+		height:          state.Board.Height,
+		hazardDamage:    int(state.Game.Ruleset.Settings.HazardDamagePerTurn),
+		hazardSpawnTime: int(state.Game.Ruleset.Settings.Royale.ShrinkEveryNTurns),
+		minimumFood:     int(state.Game.Ruleset.Settings.MinimumFood),
+		foodSpawnChance: int(state.Game.Ruleset.Settings.FoodSpawnChance),
+		totalFood:       len(state.Board.Food),
+		isWrapped:       state.Game.Ruleset.Name == "wrapped",
+		turn:            state.Turn,
 	}
 	bb.empty = bb.createEmptyBoard()
 
-	return bb
+	//bb.printBoard(snakes["me"].headBoard)
+
+	return &bb
 }
 
-func (bb *BitBoard) getSnake(id int) *snake {
-	return bb.snakes[id]
+func createBoard(coords []api.Coord, width int) *big.Int {
+	board := big.NewInt(0)
+	for _, p := range coords {
+		board.SetBit(board, getIndex(p, width), 1)
+	}
+
+	return board
 }
 
-func (bb *BitBoard) moveSnake(id int, dir Dir) {
-	snake := bb.getSnake(id)
-	head := snake.getHeadIndex()
+func (bb *BitBoard) IsGameOver() bool {
+	return len(bb.Snakes) < 2
+	//numSnakesAlive := 0
+	//for _, snake := range bb.Snakes {
+	//if snake.IsAlive() {
+	//numSnakesAlive += 1
+	//}
+	//}
+
+	//if numSnakesAlive > 1 {
+	//return false
+	//}
+
+	//return true
+}
+
+func (bb *BitBoard) GetMoves(snakeId string) []SnakeMove {
+	moves := []SnakeMove{}
+	snake := bb.GetSnake(snakeId)
+	if !snake.IsAlive() {
+		return moves
+	}
+
+	headIndex := snake.GetHeadIndex()
+
+	if !isDirOutOfBounds(Left, headIndex, bb.width, bb.height, bb.isWrapped) {
+		leftBoard := big.NewInt(0)
+		leftIndex := indexInDirection(Left, headIndex, bb.width, bb.height, bb.isWrapped)
+		leftBoard.SetBit(leftBoard, leftIndex, 1)
+
+		if leftBoard.And(leftBoard, bb.empty).BitLen() > 0 {
+			moves = append(moves, SnakeMove{Id: snakeId, Dir: Left})
+		}
+	}
+
+	if !isDirOutOfBounds(Right, headIndex, bb.width, bb.height, bb.isWrapped) {
+		rightBoard := big.NewInt(0)
+		rightIndex := indexInDirection(Right, headIndex, bb.width, bb.height, bb.isWrapped)
+		rightBoard.SetBit(rightBoard, rightIndex, 1)
+
+		if rightBoard.And(rightBoard, bb.empty).BitLen() > 0 {
+			moves = append(moves, SnakeMove{Id: snakeId, Dir: Right})
+		}
+	}
+
+	if !isDirOutOfBounds(Up, headIndex, bb.width, bb.height, bb.isWrapped) {
+		upBoard := big.NewInt(0)
+		upIndex := indexInDirection(Up, headIndex, bb.width, bb.height, bb.isWrapped)
+		upBoard.SetBit(upBoard, upIndex, 1)
+
+		if upBoard.And(upBoard, bb.empty).BitLen() > 0 {
+			moves = append(moves, SnakeMove{Id: snakeId, Dir: Up})
+		}
+	}
+
+	if !isDirOutOfBounds(Down, headIndex, bb.width, bb.height, bb.isWrapped) {
+		downBoard := big.NewInt(0)
+		downIndex := indexInDirection(Down, headIndex, bb.width, bb.height, bb.isWrapped)
+		downBoard.SetBit(downBoard, downIndex, 1)
+
+		if downBoard.And(downBoard, bb.empty).BitLen() > 0 {
+			moves = append(moves, SnakeMove{Id: snakeId, Dir: Down})
+		}
+	}
+
+	if len(moves) < 1 {
+		moves = append(moves, SnakeMove{Id: snakeId, Dir: Left})
+	}
+
+	return moves
+}
+
+func (bb *BitBoard) GetSnake(id string) *snake {
+	if snake, ok := bb.Snakes[id]; ok {
+		return snake
+	}
+	return nil
+}
+
+func (bb *BitBoard) moveSnake(id string, dir Dir) {
+	snake := bb.GetSnake(id)
+	head := snake.GetHeadIndex()
 
 	newHead := indexInDirection(dir, head, bb.width, bb.height, bb.isWrapped)
 
@@ -105,26 +201,99 @@ func (bb *BitBoard) moveSnake(id int, dir Dir) {
 	snake.moveHead(newHead)
 }
 
-func (bb *BitBoard) advanceTurn(moves []SnakeMove) {
+func (bb *BitBoard) AdvanceTurn(moves []SnakeMove) {
+	deadSnakes := []string{}
+	bb.turn += 1
 	for _, move := range moves {
-		snake := bb.getSnake(move.id)
-
-		// moved out of bounds, need to handle this here before state gets messed up
-		if isDirOutOfBounds(move.dir, snake.getHeadIndex(), bb.width, bb.height, bb.isWrapped) {
-			snake.kill()
+		snake := bb.GetSnake(move.Id)
+		if snake == nil {
 			continue
 		}
 
-		bb.moveSnake(move.id, move.dir)
-		bb.getSnake(move.id).health -= 1
+		// moved out of bounds, need to handle this here before state gets messed up
+		if isDirOutOfBounds(move.Dir, snake.GetHeadIndex(), bb.width, bb.height, bb.isWrapped) {
+			//fmt.Println("OUT OF BOUND")
+			bb.killSnake(move.Id)
+			continue
+		}
+
+		//fmt.Println("MOVING", move.Id)
+		//bb.printBoard(snake.headBoard)
+		bb.moveSnake(move.Id, move.Dir)
+		//fmt.Println("AFTER MVOING")
+		//bb.printBoard(snake.headBoard)
+		bb.GetSnake(move.Id).health -= 1
 	}
 
-	// TODO: hazard damage
+	// kill snakes
+	for id, snake := range bb.Snakes {
+		if !snake.IsAlive() {
+			continue
+		}
+
+		if snake.health < 1 {
+			//bb.killSnake(id)
+			//fmt.Println("OUT OF HEALTH")
+			deadSnakes = append(deadSnakes, id)
+			continue
+		}
+
+		// collision
+		headBoard := snake.getHeadBoard()
+
+		// i think this covers all collisions except head to heads
+		if big.NewInt(0).And(headBoard, bb.empty).BitLen() == 0 {
+			//bb.killSnake(id)
+			deadSnakes = append(deadSnakes, id)
+			//fmt.Println("COLLISION")
+			//bb.printBoard(headBoard)
+			//bb.printBoard(bb.empty)
+
+			// collided with itself
+
+			// collided with another snake
+
+			// head to head loss
+		}
+
+		for otherSId, otherS := range bb.Snakes {
+			if !otherS.IsAlive() {
+				continue
+			}
+
+			if id == otherSId {
+				continue
+			}
+
+			otherHeadBoard := otherS.getHeadBoard()
+			// head to head
+			if big.NewInt(0).And(otherHeadBoard, headBoard).BitLen() > 0 {
+				if otherS.Length > snake.Length {
+					//bb.killSnake(id)
+					//fmt.Println("HEAD TO HEAD LOSE")
+					deadSnakes = append(deadSnakes, id)
+					continue
+				}
+
+				if otherS.Length == snake.Length {
+					//fmt.Println("HEAD TO HEAD DRAW")
+					deadSnakes = append(deadSnakes, id)
+					deadSnakes = append(deadSnakes, otherSId)
+					//bb.killSnake(id)
+					//bb.killSnake(otherSId)
+				}
+			}
+		}
+	}
+
+	for _, id := range deadSnakes {
+		bb.killSnake(id)
+	}
 
 	// feed snakes
 	for _, move := range moves {
-		snake := bb.getSnake(move.id)
-		if !snake.isAlive() {
+		snake := bb.GetSnake(move.Id)
+		if snake == nil {
 			continue
 		}
 
@@ -135,28 +304,125 @@ func (bb *BitBoard) advanceTurn(moves []SnakeMove) {
 			snake.feed()
 
 			// remove food from board
-			bb.food.SetBit(bb.food, snake.getHeadIndex(), 0)
+			bb.food.SetBit(bb.food, snake.GetHeadIndex(), 0)
+			bb.totalFood -= 1
+		} else {
+			// hazard damage is applied if food is not found
+			headBoard := snake.getHeadBoard()
+			if big.NewInt(0).And(headBoard, bb.hazards).BitLen() > 0 {
+				snake.health -= bb.hazardDamage
+			}
+
+			if snake.health <= 0 {
+				//fmt.Println("HAZARD KILL")
+				bb.killSnake(move.Id)
+			}
 		}
 	}
 
-	// TODO: spawn food?
+	bb.SpawnHazardsRoyale()
+	bb.SpawnFood()
 
-	// kill snakes
-	for _, snake := range bb.snakes {
-		if !snake.isAlive() {
-			continue
-		}
+	bb.empty = bb.createEmptyBoard()
+}
 
-		if snake.health < 1 {
-			snake.kill()
-			continue
-		}
-
-		// collided with itself
-
-		// collided with another snake
-
-		// head to head loss
-
+func (bb *BitBoard) killSnake(id string) {
+	snake := bb.GetSnake(id)
+	if snake != nil {
+		snake.kill()
+		delete(bb.Snakes, id)
 	}
 }
+
+func (bb *BitBoard) IsIndexOccupied(i int) bool {
+	tester := big.NewInt(0)
+	tester.SetBit(tester, i, 1)
+
+	return tester.And(tester, bb.empty).BitLen() == 0
+}
+
+func (bb *BitBoard) IsIndexFood(i int) bool {
+	tester := big.NewInt(0)
+	tester.SetBit(tester, i, 1)
+
+	return tester.And(tester, bb.food).BitLen() > 0
+}
+
+func (bb *BitBoard) IsIndexHazard(i int) bool {
+	tester := big.NewInt(0)
+	tester.SetBit(tester, i, 1)
+
+	return tester.And(tester, bb.hazards).BitLen() > 0
+}
+
+func (bb *BitBoard) Clone() *BitBoard {
+	snakes := make(map[string]*snake, len(bb.Snakes))
+	for id, snake := range bb.Snakes {
+		snakes[id] = snake.clone()
+	}
+
+	food := big.NewInt(0).Set(bb.food)
+	hazards := big.NewInt(0).Set(bb.hazards)
+	empty := big.NewInt(0).Set(bb.empty)
+
+	return &BitBoard{
+		food:         food,
+		hazards:      hazards,
+		empty:        empty,
+		Snakes:       snakes,
+		width:        bb.width,
+		height:       bb.height,
+		hazardDamage: bb.hazardDamage,
+		isWrapped:    bb.isWrapped,
+		turn:         bb.turn,
+	}
+}
+
+func (bb *BitBoard) IsEqual(board *BitBoard) bool {
+	if big.NewInt(0).Xor(bb.empty, board.empty).BitLen() > 0 {
+		return false
+	}
+
+	if len(bb.Snakes) != len(board.Snakes) {
+		return false
+	}
+
+	for id, snake := range bb.Snakes {
+		if !snake.IsAlive() {
+			continue
+		}
+
+		if big.NewInt(0).Xor(snake.board, board.GetSnake(id).board).BitLen() > 0 {
+			return false
+		}
+	}
+
+	return true
+}
+
+//func (bb *BitBoard) AdvanceWithExternal(state api.GameState) {
+//newSnakes := make(map[string]api.Battlesnake)
+//for _, s := range state.Board.Snakes {
+//newSnakes[s.ID] = s
+//}
+
+//actualMoves := []SnakeMove{}
+
+//for id, snake := range bb.Snakes {
+//if nSnake, ok := newSnakes[id]; ok {
+//actualMove := SnakeMove{
+//Id:  id,
+//Dir: bb.GetLastSnakeMoveFromExternal(nSnake),
+//}
+//actualMoves = append(actualMoves, actualMove)
+//} else {
+//// remove snakes that died
+//// i think this won't mess up turn resolution...
+//bb.GetSnake(bId).kill()
+//}
+//}
+
+//bb.AdvanceTurn(actualMoves)
+//bb.food = createBoard(state.Board.Food, bb.width)
+//bb.hazards = createBoard(state.Board.Hazards, bb.width)
+//}

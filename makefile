@@ -33,6 +33,9 @@ run_mini:
 run_huey:
 	go run ./snakes/huey/
 
+run_mcts:
+	go run ./snakes/mcts/
+
 build_all: build build_random build_eater
 
 build_ga:

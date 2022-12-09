@@ -85,13 +85,29 @@ func getIndex(p api.Coord, width int) int {
 	return p.Y*width + p.X
 }
 
+func (bb *BitBoard) GetOpponents() []*snake {
+	snakes := []*snake{}
+
+	for id, snake := range bb.Snakes {
+		if id != bb.meId && snake.IsAlive() {
+			snakes = append(snakes, snake)
+		}
+	}
+
+	return snakes
+}
+
 func (bb *BitBoard) indexToString(i int) string {
 	board := big.NewInt(0)
 	board.SetBit(board, i, 1)
 
-	for id, s := range bb.snakes {
-		if s.getHeadIndex() == i {
-			return fmt.Sprintf(" %dh ", id)
+	for _, s := range bb.Snakes {
+		if !s.IsAlive() {
+			continue
+		}
+
+		if s.GetHeadIndex() == i {
+			return " hh "
 		}
 		test := big.NewInt(0)
 		if test.And(board, s.board).BitLen() > 0 {
@@ -119,11 +135,11 @@ func (bb *BitBoard) indexToString(i int) string {
 
 func (bb *BitBoard) Print() {
 	fmt.Println("######")
-	for id, s := range bb.snakes {
-		fmt.Printf("%d - length:%d\n", id, s.length)
+	for id, s := range bb.Snakes {
+		fmt.Printf("%s - length:%d\n", id, s.Length)
 	}
-	for id, s := range bb.snakes {
-		fmt.Printf("%d - health:%d\n", id, s.health)
+	for id, s := range bb.Snakes {
+		fmt.Printf("%s - health:%d\n", id, s.health)
 	}
 
 	for y := int(bb.height - 1); y >= 0; y-- {
@@ -134,4 +150,78 @@ func (bb *BitBoard) Print() {
 		}
 		fmt.Println(line)
 	}
+}
+
+func (bb *BitBoard) printBoard(b *big.Int) {
+	for y := int(bb.height - 1); y >= 0; y-- {
+		var line string
+		for x := 0; x < int(bb.width); x++ {
+			p := api.Coord{X: x, Y: y}
+			index := getIndex(p, bb.width)
+			line = line + fmt.Sprint(b.Bit(index))
+		}
+		fmt.Println(line)
+	}
+}
+
+func (bb *BitBoard) GetCartesianProductOfMoves() [][]SnakeMove {
+	var allMoves [][]SnakeMove
+	for id, snake := range bb.Snakes {
+		if snake.IsAlive() {
+			moves := bb.GetMoves(id)
+			allMoves = append(allMoves, moves)
+		}
+	}
+
+	var temp [][]SnakeMove
+	for _, a := range allMoves[0] {
+		temp = append(temp, []SnakeMove{a})
+	}
+
+	for i := 1; i < len(allMoves); i++ {
+		temp = CartesianProduct(temp, allMoves[i])
+	}
+
+	return temp
+}
+
+func CartesianProduct(movesA [][]SnakeMove, movesB []SnakeMove) [][]SnakeMove {
+	var result [][]SnakeMove
+	for _, a := range movesA {
+		for _, b := range movesB {
+			var temp []SnakeMove
+			for _, m := range a {
+				temp = append(temp, m)
+			}
+
+			temp = append(temp, b)
+			result = append(result, temp)
+		}
+	}
+
+	return result
+}
+
+// updates without removing snakes
+func (bb *BitBoard) Update(new *BitBoard) {
+	//bb.empty = new.empty
+	bb.food = new.food
+	bb.hazards = new.hazards
+}
+
+func (bb *BitBoard) GetLastSnakeMoveFromExternal(snake api.Battlesnake) Dir {
+	head := getIndex(snake.Body[0], bb.width)
+	neck := getIndex(snake.Body[1], bb.width)
+
+	if indexInDirection(Left, neck, bb.width, bb.height, bb.isWrapped) == head {
+		return Left
+	}
+	if indexInDirection(Right, neck, bb.width, bb.height, bb.isWrapped) == head {
+		return Right
+	}
+	if indexInDirection(Up, neck, bb.width, bb.height, bb.isWrapped) == head {
+		return Up
+	}
+
+	return Down
 }

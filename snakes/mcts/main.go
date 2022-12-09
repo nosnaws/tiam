@@ -3,10 +3,14 @@ package main
 import (
 	"encoding/json"
 	"log"
+	"math/rand"
 	"net/http"
 	"os"
 	"runtime"
+	"time"
 
+	_ "net/http"
+	_ "net/http/pprof"
 	"strconv"
 
 	"github.com/newrelic/go-agent/v3/newrelic"
@@ -15,7 +19,7 @@ import (
 	mctsv3 "github.com/nosnaws/tiam/mcts_v3"
 )
 
-const ServerID = "nosnaws/tiam"
+const ServerID = "nosnaws/mcts"
 
 func recordLatency(app *newrelic.Application, state api.GameState) {
 	latency, err := strconv.ParseFloat(state.You.Latency, 64)
@@ -161,6 +165,7 @@ func withServerID(next http.HandlerFunc) http.HandlerFunc {
 // Main Entrypoint
 
 func main() {
+	rand.Seed(time.Now().UnixMicro())
 	log.Println("Version", runtime.Version())
 	log.Println("NumCPU", runtime.NumCPU())
 	log.Println("GOMAXPROCS", runtime.GOMAXPROCS(0))

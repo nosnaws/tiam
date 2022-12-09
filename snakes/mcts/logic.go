@@ -15,26 +15,27 @@ import (
 	api "github.com/nosnaws/tiam/battlesnake"
 	"github.com/nosnaws/tiam/bitboard"
 	mctsv3 "github.com/nosnaws/tiam/mcts_v3"
-	"github.com/nosnaws/tiam/mmm"
 )
 
+// This function is called when you register your Battlesnake on play.battlesnake.com
+// See https://docs.battlesnake.com/guides/getting-started#step-4-register-your-battlesnake
+// It controls your Battlesnake appearance and author permissions.
+// For customization options, see https://docs.battlesnake.com/references/personalization
+// TIP: If you open your Battlesnake URL in browser you should see this data.
 func info() api.BattlesnakeInfoResponse {
 	log.Println("INFO")
 	return api.BattlesnakeInfoResponse{
 		APIVersion: "1",
-		Author:     "nosnaws",
-		Color:      "#002080",
-		Head:       "alligator",
-		Tail:       "cosmic-horror",
+		Author:     "nosnaws",       // TODO: Your Battlesnake username
+		Color:      "#000000",       // TODO: Personalize
+		Head:       "eel",           // TODO: Personalize
+		Tail:       "cosmic-horror", // TODO: Personalize
 	}
 }
 
-var gameCache map[string]*mmm.Cache
-
-func initialize() {
-	gameCache = make(map[string]*mmm.Cache)
-}
-
+// This function is called everytime your Battlesnake is entered into a game.
+// The provided GameState contains information about the game that's about to be played.
+// It's purely for informational purposes, you don't have to make any decisions here.
 func start(gc *mctsv3.GameController, state api.GameState) {
 	log.Printf("%s START\n", state.Game.ID)
 	gc.StartGame(state)
