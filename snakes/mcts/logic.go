@@ -13,7 +13,7 @@ import (
 	"github.com/newrelic/go-agent/v3/newrelic"
 
 	api "github.com/nosnaws/tiam/battlesnake"
-	"github.com/nosnaws/tiam/bitboard"
+	bitboard "github.com/nosnaws/tiam/bitboard2"
 	mctsv3 "github.com/nosnaws/tiam/mcts_v3"
 )
 

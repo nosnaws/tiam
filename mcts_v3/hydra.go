@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/nosnaws/tiam/bitboard"
+	bitboard "github.com/nosnaws/tiam/bitboard2"
 )
 
 // setup workers to run the MCTS algorithm, return the results
@@ -24,7 +24,7 @@ type responseChan chan rewards
 
 // creates new workers each request, easier for now
 func GetNextMove(board *bitboard.BitBoard, config MCTSConfig, me string) bitboard.Dir {
-	workers := 8
+	workers := 2
 	responses := make(responseChan, workers)
 	duration, _ := time.ParseDuration("400ms")
 	timeout, cancel := context.WithTimeout(context.Background(), duration)
@@ -43,6 +43,7 @@ func GetNextMove(board *bitboard.BitBoard, config MCTSConfig, me string) bitboar
 	close(responses)
 
 	totalRewards := make(rewards)
+	totalPlays := 0.0
 
 	for res := range responses {
 		for resMove, resReward := range res {
@@ -52,16 +53,19 @@ func GetNextMove(board *bitboard.BitBoard, config MCTSConfig, me string) bitboar
 
 			r := totalRewards[resMove]
 			r.plays += resReward.plays
+			totalPlays += resReward.plays
 			r.tac[0] += resReward.tac[0]
 			r.tac[1] += resReward.tac[1]
 			r.tac[2] += resReward.tac[2]
 			totalRewards[resMove] = r
 		}
+
 	}
 
 	fmt.Println("AGGREGATE", totalRewards)
+	tactic := determineTacticFromRewards(totalRewards, totalPlays)
 
-	return bestMoveByTactic(totalRewards, 0)
+	return bestMoveByTactic(totalRewards, tactic)
 }
 
 func worker(ctx context.Context, id int, board *bitboard.BitBoard, config MCTSConfig, me string) rewards {

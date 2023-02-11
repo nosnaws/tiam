@@ -113,6 +113,7 @@ func TestMCTS(t *testing.T) {
 	node := ChooseNewRoot(nil, state)
 	MCTS(node, 10, 5, 20)
 }
+
 func BenchmarkMCTS(b *testing.B) {
 	// _ _ _ _ _ _ _ _ _ _ _
 	// _ _ _ _ _ _ _ _ _ _ _

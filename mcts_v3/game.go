@@ -2,7 +2,7 @@ package mctsv3
 
 import (
 	api "github.com/nosnaws/tiam/battlesnake"
-	"github.com/nosnaws/tiam/bitboard"
+	bitboard "github.com/nosnaws/tiam/bitboard2"
 )
 
 type SnakeMeta struct {

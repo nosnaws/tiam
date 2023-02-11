@@ -3,12 +3,13 @@ package mctsv3
 import (
 	"context"
 	"fmt"
+	"log"
 	"math"
 	"math/rand"
 	"time"
 
 	api "github.com/nosnaws/tiam/battlesnake"
-	"github.com/nosnaws/tiam/bitboard"
+	bitboard "github.com/nosnaws/tiam/bitboard2"
 )
 
 // TODO: the bitboard is going to remove snakes when they die,
@@ -381,6 +382,32 @@ func determineTactic(root *node) tactic {
 	}
 
 	fmt.Println("DEFAULTING TO EATING MODE")
+	return foodTac
+}
+
+func determineTacticFromRewards(rew rewards, totalPlays float64) tactic {
+	survivalThreshold := 0.6
+	survivalTac := tactic(0)
+	foodTac := tactic(1)
+	aggTac := tactic(2)
+
+	totalSurv := 0.0
+	totalFood := 0.0
+	totalAgg := 0.0
+	for _, r := range rew {
+		totalSurv += r.tac[survivalTac]
+		totalFood += r.tac[foodTac]
+		totalAgg += r.tac[aggTac]
+	}
+
+	survivalIndicator := totalSurv / totalPlays
+	log.Println("SURVIVAL INDICATOR", survivalIndicator)
+	if survivalIndicator < survivalThreshold {
+		fmt.Println("SURVIVAL MODE")
+		return survivalTac
+	}
+
+	log.Println("DEFAULTING TO EATING MODE")
 	return foodTac
 }
 
