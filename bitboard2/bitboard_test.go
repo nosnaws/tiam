@@ -8,6 +8,70 @@ import (
 	"github.com/shabbyrobe/go-num"
 )
 
+func TestCreatesRoyaleBoard(t *testing.T) {
+	//t.Skip()
+	// _ _ _
+	// _ _ _
+	// s s h
+	me := api.Battlesnake{
+		// Length 3, facing right
+		ID:     "me",
+		Health: 100,
+		Head:   api.Coord{X: 2, Y: 0},
+		Body:   []api.Coord{{X: 2, Y: 0}, {X: 1, Y: 0}, {X: 0, Y: 0}},
+	}
+	state := api.GameState{
+		Turn: 3,
+		Board: api.Board{
+			Snakes: []api.Battlesnake{me},
+			Height: 3,
+			Width:  3,
+		},
+		Game: api.Game{
+			Map: "royale",
+		},
+		You: me,
+	}
+
+	board := CreateBitBoard(state)
+
+	if board.isRoyale != true {
+		panic("Did not set royale")
+	}
+}
+
+func TestCreatesNonRoyaleBoard(t *testing.T) {
+	//t.Skip()
+	// _ _ _
+	// _ _ _
+	// s s h
+	me := api.Battlesnake{
+		// Length 3, facing right
+		ID:     "me",
+		Health: 100,
+		Head:   api.Coord{X: 2, Y: 0},
+		Body:   []api.Coord{{X: 2, Y: 0}, {X: 1, Y: 0}, {X: 0, Y: 0}},
+	}
+	state := api.GameState{
+		Turn: 3,
+		Board: api.Board{
+			Snakes: []api.Battlesnake{me},
+			Height: 3,
+			Width:  3,
+		},
+		Game: api.Game{
+			Map: "islands_and_bridges",
+		},
+		You: me,
+	}
+
+	board := CreateBitBoard(state)
+
+	if board.isRoyale != false {
+		panic("Incorrectly set royale mode")
+	}
+}
+
 func TestAdvanceBoardTurnDamage(t *testing.T) {
 	//t.Skip()
 	// _ _ _

@@ -41,6 +41,7 @@ type BitBoard struct {
 	minimumFood     int
 	totalFood       int
 	isWrapped       bool
+	isRoyale        bool
 	turn            int
 }
 
@@ -90,6 +91,7 @@ func CreateBitBoard(state api.GameState) *BitBoard {
 		foodSpawnChance: int(state.Game.Ruleset.Settings.FoodSpawnChance),
 		totalFood:       len(state.Board.Food),
 		isWrapped:       state.Game.Ruleset.Name == "wrapped",
+		isRoyale:        state.Game.Map == "royale",
 		turn:            state.Turn,
 	}
 	bb.empty = bb.createEmptyBoard()
@@ -319,7 +321,9 @@ func (bb *BitBoard) AdvanceTurn(moves []SnakeMove) {
 		}
 	}
 
-	bb.SpawnHazardsRoyale()
+	if bb.isRoyale {
+		bb.SpawnHazardsRoyale()
+	}
 	bb.SpawnFood()
 
 	bb.empty = bb.createEmptyBoard()
@@ -373,6 +377,7 @@ func (bb *BitBoard) Clone() *BitBoard {
 		height:       bb.height,
 		hazardDamage: bb.hazardDamage,
 		isWrapped:    bb.isWrapped,
+		isRoyale:     bb.isRoyale,
 		turn:         bb.turn,
 	}
 }
