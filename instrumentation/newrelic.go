@@ -78,7 +78,7 @@ func GetCustomAttributesEnd(txn *newrelic.Transaction, state api.GameState) {
 		isWinner = winner.Name == state.You.Name
 	}
 
-	replayLink := fmt.Sprintf("https://play.battlesnake.com/g/%s", state.Game.ID)
+	replayLink := fmt.Sprintf("https://play.battlesnake.com/game/%s", state.Game.ID)
 	txn.AddAttribute("snakeGameWinnerName", winnerName)
 	txn.AddAttribute("snakeGameWinnerId", winnerId)
 	txn.AddAttribute("snakeGameIsWin", isWinner)
