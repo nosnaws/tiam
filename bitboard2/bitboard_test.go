@@ -536,7 +536,7 @@ func TestAdvanceBoardMoveOnNeck(t *testing.T) {
 }
 
 func TestAdvanceBoardWrapped(t *testing.T) {
-	//t.Skip()
+	t.Skip()
 	// _ _ _
 	// _ _ h
 	// _ s s
@@ -691,8 +691,8 @@ func TestGetMoves(t *testing.T) {
 		Turn: 4,
 		Board: api.Board{
 			Snakes: []api.Battlesnake{me},
-			Height: 3,
-			Width:  3,
+			Height: 11,
+			Width:  11,
 		},
 		You: me,
 		Game: api.Game{

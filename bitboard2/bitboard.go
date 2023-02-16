@@ -126,54 +126,124 @@ func (bb *BitBoard) IsGameOver() bool {
 	//return true
 }
 
+// BOARD
+// 111 | 112 | 113 | 114 | 115 | 116 | 117 | 118 | 119 | 120 | 121
+// 100 | 101 | 102 | 103 | 104 | 105 | 106 | 107 | 108 | 109 | 110
+// 089 | 090 | 091 | 092 | 093 | 094 | 095 | 096 | 097 | 098 | 099
+// 078 | 079 | 080 | 081 | 082 | 083 | 084 | 085 | 086 | 087 | 088
+// 067 | 068 | 069 | 070 | 071 | 072 | 073 | 074 | 075 | 076 | 077
+// 055 | 056 | 057 | 058 | 059 | 061 | 062 | 063 | 064 | 065 | 066
+// 044 | 045 | 046 | 047 | 048 | 049 | 050 | 051 | 052 | 053 | 054
+// 033 | 034 | 035 | 036 | 037 | 038 | 039 | 040 | 041 | 042 | 043
+// 022 | 023 | 024 | 025 | 026 | 027 | 028 | 029 | 030 | 031 | 032
+// 011 | 012 | 013 | 014 | 015 | 016 | 017 | 018 | 019 | 020 | 021
+// 000 | 001 | 002 | 003 | 004 | 005 | 006 | 007 | 008 | 009 | 010
+
+var BOTTOM_MASK = num.U128FromRaw(
+	0b0000000000000000000000000000000000000000000000000000000000000000, // HI
+	0b0000000000000000000000000000000000000000000000000000011111111111, // LO
+)
+
+// This is the 11 most sig bits + 7 unused bits
+var TOP_MASK = num.U128FromRaw(
+	0b1111111111111111110000000000000000000000000000000000000000000000, // HI
+	0b0000000000000000000000000000000000000000000000000000000000000000, // LO
+)
+
+var RIGHT_MASK = num.U128FromRaw(
+	0b0000000100000000001000000000010000000000100000000001000000000010, // HI
+	0b0000000001000000000010000000000100000000001000000000010000000000, // LO
+)
+
+var LEFT_MASK = num.U128FromRaw(
+	0b0000000000000000010000000000100000000001000000000010000000000100, // HI
+	0b0000000010000000000100000000001000000000010000000000100000000001, // LO
+)
+
 func (bb *BitBoard) GetMoves(snakeId string) []SnakeMove {
+	width := uint(bb.width)
 	moves := []SnakeMove{}
 	snake := bb.GetSnake(snakeId)
 	if !snake.IsAlive() {
 		return moves
 	}
 
-	headIndex := snake.GetHeadIndex()
+	//headIndex := snake.GetHeadIndex()
+	headBoard := snake.getHeadBoard()
+	//fmt.Println("HEAD BOARD")
+	//bb.printBoard(headBoard)
 
-	if !isDirOutOfBounds(Left, headIndex, bb.width, bb.height, bb.isWrapped) {
-		leftBoard := num.U128From16(0)
-		leftIndex := indexInDirection(Left, headIndex, bb.width, bb.height, bb.isWrapped)
-		leftBoard = leftBoard.SetBit(leftIndex, 1)
+	leftBoard := headBoard.Rsh(1)
+	//fmt.Println("LEFT BOARD")
+	//bb.printBoard(leftBoard)
+	rightBoard := headBoard.Lsh(1)
+	//fmt.Println("RIGHT BOARD")
+	//bb.printBoard(rightBoard)
+	upBoard := headBoard.Lsh(width)
+	//fmt.Println("UP BOARD")
+	//bb.printBoard(upBoard)
+	downBoard := headBoard.Rsh(width)
+	//fmt.Println("DOWN BOARD")
+	//bb.printBoard(downBoard)
 
+	if headBoard.And(LEFT_MASK).BitLen() == 0 {
 		if leftBoard.And(bb.empty).BitLen() > 0 {
 			moves = append(moves, SnakeMove{Id: snakeId, Dir: Left})
 		}
 	}
+	//if !isDirOutOfBounds(Left, headIndex, bb.width, bb.height, bb.isWrapped) {
+	//leftBoard := num.U128From16(0)
+	//leftIndex := indexInDirection(Left, headIndex, bb.width, bb.height, bb.isWrapped)
+	//leftBoard = leftBoard.SetBit(leftIndex, 1)
 
-	if !isDirOutOfBounds(Right, headIndex, bb.width, bb.height, bb.isWrapped) {
-		rightBoard := num.U128From16(0)
-		rightIndex := indexInDirection(Right, headIndex, bb.width, bb.height, bb.isWrapped)
-		rightBoard = rightBoard.SetBit(rightIndex, 1)
+	//if leftBoard.And(bb.empty).BitLen() > 0 {
+	//moves = append(moves, SnakeMove{Id: snakeId, Dir: Left})
+	//}
+	//}
 
+	if headBoard.And(RIGHT_MASK).BitLen() == 0 {
 		if rightBoard.And(bb.empty).BitLen() > 0 {
 			moves = append(moves, SnakeMove{Id: snakeId, Dir: Right})
 		}
 	}
+	//if !isDirOutOfBounds(Right, headIndex, bb.width, bb.height, bb.isWrapped) {
+	//rightBoard := num.U128From16(0)
+	//rightIndex := indexInDirection(Right, headIndex, bb.width, bb.height, bb.isWrapped)
+	//rightBoard = rightBoard.SetBit(rightIndex, 1)
 
-	if !isDirOutOfBounds(Up, headIndex, bb.width, bb.height, bb.isWrapped) {
-		upBoard := num.U128From16(0)
-		upIndex := indexInDirection(Up, headIndex, bb.width, bb.height, bb.isWrapped)
-		upBoard = upBoard.SetBit(upIndex, 1)
+	//if rightBoard.And(bb.empty).BitLen() > 0 {
+	//moves = append(moves, SnakeMove{Id: snakeId, Dir: Right})
+	//}
+	//}
 
+	if headBoard.And(TOP_MASK).BitLen() == 0 {
 		if upBoard.And(bb.empty).BitLen() > 0 {
 			moves = append(moves, SnakeMove{Id: snakeId, Dir: Up})
 		}
 	}
+	//if !isDirOutOfBounds(Up, headIndex, bb.width, bb.height, bb.isWrapped) {
+	//upBoard := num.U128From16(0)
+	//upIndex := indexInDirection(Up, headIndex, bb.width, bb.height, bb.isWrapped)
+	//upBoard = upBoard.SetBit(upIndex, 1)
 
-	if !isDirOutOfBounds(Down, headIndex, bb.width, bb.height, bb.isWrapped) {
-		downBoard := num.U128From16(0)
-		downIndex := indexInDirection(Down, headIndex, bb.width, bb.height, bb.isWrapped)
-		downBoard = downBoard.SetBit(downIndex, 1)
-
+	//if upBoard.And(bb.empty).BitLen() > 0 {
+	//moves = append(moves, SnakeMove{Id: snakeId, Dir: Up})
+	//}
+	//}
+	if headBoard.And(BOTTOM_MASK).BitLen() == 0 {
 		if downBoard.And(bb.empty).BitLen() > 0 {
 			moves = append(moves, SnakeMove{Id: snakeId, Dir: Down})
 		}
 	}
+	//if !isDirOutOfBounds(Down, headIndex, bb.width, bb.height, bb.isWrapped) {
+	//downBoard := num.U128From16(0)
+	//downIndex := indexInDirection(Down, headIndex, bb.width, bb.height, bb.isWrapped)
+	//downBoard = downBoard.SetBit(downIndex, 1)
+
+	//if downBoard.And(bb.empty).BitLen() > 0 {
+	//moves = append(moves, SnakeMove{Id: snakeId, Dir: Down})
+	//}
+	//}
 
 	if len(moves) < 1 {
 		moves = append(moves, SnakeMove{Id: snakeId, Dir: Left})
@@ -199,12 +269,26 @@ func (bb *BitBoard) moveSnake(id string, dir Dir) {
 	snake.moveTail()
 
 	// move head
-	snake.moveHead(newHead)
+	snake.moveHead(newHead, dir, uint(bb.width))
+}
+
+func (bb *BitBoard) moveSnakeLeft(id string) {
+	bb.moveSnake(id, Left)
+}
+func (bb *BitBoard) moveSnakeRight(id string) {
+	bb.moveSnake(id, Right)
+}
+func (bb *BitBoard) moveSnakeUp(id string) {
+	bb.moveSnake(id, Up)
+}
+func (bb *BitBoard) moveSnakeDown(id string) {
+	bb.moveSnake(id, Down)
 }
 
 func (bb *BitBoard) AdvanceTurn(moves []SnakeMove) {
 	deadSnakes := []string{}
 	bb.turn += 1
+
 	for _, move := range moves {
 		snake := bb.GetSnake(move.Id)
 		if snake == nil {
@@ -392,9 +476,9 @@ func (bb *BitBoard) IsEqual(board *BitBoard) bool {
 	}
 
 	for id, snake := range bb.Snakes {
-		if !snake.IsAlive() {
-			continue
-		}
+		//if !snake.IsAlive() {
+		//continue
+		//}
 
 		if snake.board.Xor(board.GetSnake(id).board).BitLen() > 0 {
 			return false

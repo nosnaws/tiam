@@ -82,12 +82,22 @@ func (s *snake) getTailIndex() int {
 	return s.body[0]
 }
 
-func (s *snake) moveHead(i int) {
-	s.headBoard = s.headBoard.SetBit(s.GetHeadIndex(), 0)
-	s.headBoard = s.headBoard.SetBit(i, 1)
+func (s *snake) moveHead(newIdx int, dir Dir, width uint) {
+	if dir == Left {
+		s.headBoard = s.headBoard.Rsh(1)
+	} else if dir == Right {
+		s.headBoard = s.headBoard.Lsh(1)
+	} else if dir == Up {
+		s.headBoard = s.headBoard.Lsh(width)
+	} else {
+		s.headBoard = s.headBoard.Rsh(width)
+	}
+	//s.headBoard = s.headBoard.SetBit(s.GetHeadIndex(), 0)
+	//s.headBoard = s.headBoard.SetBit(i, 1)
 
-	s.board = s.board.SetBit(i, 1)
-	s.setHeadIndex(i)
+	s.board = s.board.Or(s.headBoard)
+
+	s.setHeadIndex(newIdx)
 }
 
 func (s *snake) moveTail() {
