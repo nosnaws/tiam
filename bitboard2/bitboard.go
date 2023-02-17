@@ -4,6 +4,7 @@ import (
 	num "github.com/shabbyrobe/go-num"
 
 	api "github.com/nosnaws/tiam/battlesnake"
+	"github.com/nosnaws/tiam/moveset"
 )
 
 // bitboard
@@ -21,6 +22,11 @@ import (
 type SnakeMove struct {
 	Id  string
 	Dir Dir
+}
+
+type SnakeMoveSet struct {
+	Id  string
+	Set moveset.MoveSet
 }
 
 type BitBoard struct {
@@ -160,9 +166,40 @@ var LEFT_MASK = num.U128FromRaw(
 	0b0000000010000000000100000000001000000000010000000000100000000001, // LO
 )
 
-func (bb *BitBoard) GetMoves(snakeId string) []SnakeMove {
+func (bb *BitBoard) IsSnakeOnWall(snakeId string) bool {
+	if bb.isWrapped {
+		return false
+	}
+
+	if snake := bb.GetSnake(snakeId); snake != nil {
+		head := snake.getHeadBoard()
+
+		if head.And(LEFT_MASK).BitLen() > 0 {
+			return true
+		}
+
+		if head.And(TOP_MASK).BitLen() > 0 {
+			return true
+		}
+
+		if head.And(RIGHT_MASK).BitLen() > 0 {
+			return true
+		}
+
+		if head.And(BOTTOM_MASK).BitLen() > 0 {
+			return true
+		}
+	}
+	return false
+}
+
+func (bb *BitBoard) GetMoves(snakeId string) SnakeMoveSet {
 	width := uint(bb.width)
-	moves := []SnakeMove{}
+	moves := SnakeMoveSet{
+		Id: snakeId,
+	}
+	ms := moveset.Create()
+
 	snake := bb.GetSnake(snakeId)
 	if !snake.IsAlive() {
 		return moves
@@ -186,68 +223,39 @@ func (bb *BitBoard) GetMoves(snakeId string) []SnakeMove {
 	//fmt.Println("DOWN BOARD")
 	//bb.printBoard(downBoard)
 
+	// LEFT
 	if headBoard.And(LEFT_MASK).BitLen() == 0 {
 		if leftBoard.And(bb.empty).BitLen() > 0 {
-			moves = append(moves, SnakeMove{Id: snakeId, Dir: Left})
+			ms = moveset.SetLeft(ms)
 		}
 	}
-	//if !isDirOutOfBounds(Left, headIndex, bb.width, bb.height, bb.isWrapped) {
-	//leftBoard := num.U128From16(0)
-	//leftIndex := indexInDirection(Left, headIndex, bb.width, bb.height, bb.isWrapped)
-	//leftBoard = leftBoard.SetBit(leftIndex, 1)
 
-	//if leftBoard.And(bb.empty).BitLen() > 0 {
-	//moves = append(moves, SnakeMove{Id: snakeId, Dir: Left})
-	//}
-	//}
-
+	// RIGHT
 	if headBoard.And(RIGHT_MASK).BitLen() == 0 {
 		if rightBoard.And(bb.empty).BitLen() > 0 {
-			moves = append(moves, SnakeMove{Id: snakeId, Dir: Right})
+			ms = moveset.SetRight(ms)
 		}
 	}
-	//if !isDirOutOfBounds(Right, headIndex, bb.width, bb.height, bb.isWrapped) {
-	//rightBoard := num.U128From16(0)
-	//rightIndex := indexInDirection(Right, headIndex, bb.width, bb.height, bb.isWrapped)
-	//rightBoard = rightBoard.SetBit(rightIndex, 1)
 
-	//if rightBoard.And(bb.empty).BitLen() > 0 {
-	//moves = append(moves, SnakeMove{Id: snakeId, Dir: Right})
-	//}
-	//}
-
+	// UP
 	if headBoard.And(TOP_MASK).BitLen() == 0 {
 		if upBoard.And(bb.empty).BitLen() > 0 {
-			moves = append(moves, SnakeMove{Id: snakeId, Dir: Up})
+			ms = moveset.SetUp(ms)
 		}
 	}
-	//if !isDirOutOfBounds(Up, headIndex, bb.width, bb.height, bb.isWrapped) {
-	//upBoard := num.U128From16(0)
-	//upIndex := indexInDirection(Up, headIndex, bb.width, bb.height, bb.isWrapped)
-	//upBoard = upBoard.SetBit(upIndex, 1)
 
-	//if upBoard.And(bb.empty).BitLen() > 0 {
-	//moves = append(moves, SnakeMove{Id: snakeId, Dir: Up})
-	//}
-	//}
+	// DOWN
 	if headBoard.And(BOTTOM_MASK).BitLen() == 0 {
 		if downBoard.And(bb.empty).BitLen() > 0 {
-			moves = append(moves, SnakeMove{Id: snakeId, Dir: Down})
+			ms = moveset.SetDown(ms)
 		}
 	}
-	//if !isDirOutOfBounds(Down, headIndex, bb.width, bb.height, bb.isWrapped) {
-	//downBoard := num.U128From16(0)
-	//downIndex := indexInDirection(Down, headIndex, bb.width, bb.height, bb.isWrapped)
-	//downBoard = downBoard.SetBit(downIndex, 1)
 
-	//if downBoard.And(bb.empty).BitLen() > 0 {
-	//moves = append(moves, SnakeMove{Id: snakeId, Dir: Down})
-	//}
-	//}
-
-	if len(moves) < 1 {
-		moves = append(moves, SnakeMove{Id: snakeId, Dir: Left})
+	if moveset.IsEmpty(ms) {
+		ms = moveset.SetLeft(ms)
 	}
+
+	moves.Set = ms
 
 	return moves
 }
@@ -272,39 +280,33 @@ func (bb *BitBoard) moveSnake(id string, dir Dir) {
 	snake.moveHead(newHead, dir, uint(bb.width))
 }
 
-func (bb *BitBoard) moveSnakeLeft(id string) {
-	bb.moveSnake(id, Left)
-}
-func (bb *BitBoard) moveSnakeRight(id string) {
-	bb.moveSnake(id, Right)
-}
-func (bb *BitBoard) moveSnakeUp(id string) {
-	bb.moveSnake(id, Up)
-}
-func (bb *BitBoard) moveSnakeDown(id string) {
-	bb.moveSnake(id, Down)
+func (bb *BitBoard) isSnakeOutOfBounds(id string, headIdx int, ms moveset.MoveSet) bool {
+	if isDirOutOfBounds(MoveSetToDir(ms), headIdx, bb.width, bb.height, bb.isWrapped) {
+		return true
+	}
+
+	return false
 }
 
-func (bb *BitBoard) AdvanceTurn(moves []SnakeMove) {
+func (bb *BitBoard) AdvanceTurn(allMoves []SnakeMoveSet) {
 	deadSnakes := []string{}
 	bb.turn += 1
 
-	for _, move := range moves {
+	for _, move := range allMoves {
 		snake := bb.GetSnake(move.Id)
 		if snake == nil {
 			continue
 		}
 
 		// moved out of bounds, need to handle this here before state gets messed up
-		if isDirOutOfBounds(move.Dir, snake.GetHeadIndex(), bb.width, bb.height, bb.isWrapped) {
-			//fmt.Println("OUT OF BOUND")
+		if bb.isSnakeOutOfBounds(move.Id, snake.GetHeadIndex(), move.Set) {
 			bb.killSnake(move.Id)
 			continue
 		}
 
 		//fmt.Println("MOVING", move.Id)
 		//bb.printBoard(snake.headBoard)
-		bb.moveSnake(move.Id, move.Dir)
+		bb.moveSnake(move.Id, MoveSetToDir(move.Set))
 		//fmt.Println("AFTER MVOING")
 		//bb.printBoard(snake.headBoard)
 		bb.GetSnake(move.Id).health -= 1
@@ -376,7 +378,7 @@ func (bb *BitBoard) AdvanceTurn(moves []SnakeMove) {
 	}
 
 	// feed snakes
-	for _, move := range moves {
+	for _, move := range allMoves {
 		snake := bb.GetSnake(move.Id)
 		if snake == nil {
 			continue
@@ -486,6 +488,25 @@ func (bb *BitBoard) IsEqual(board *BitBoard) bool {
 	}
 
 	return true
+}
+
+// returns the Dir version ("left", "right", "up", "down")
+// of the moveset. If more than one is set, it returns the first found
+// in the order displayed above.
+func MoveSetToDir(ms moveset.MoveSet) Dir {
+	if moveset.HasLeft(ms) {
+		return Left
+	}
+	if moveset.HasRight(ms) {
+		return Right
+	}
+	if moveset.HasUp(ms) {
+		return Up
+	}
+	if moveset.HasDown(ms) {
+		return Down
+	}
+	return ""
 }
 
 //func (bb *BitBoard) AdvanceWithExternal(state api.GameState) {

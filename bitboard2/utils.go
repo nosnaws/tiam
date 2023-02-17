@@ -4,6 +4,7 @@ import (
 	"fmt"
 
 	api "github.com/nosnaws/tiam/battlesnake"
+	"github.com/nosnaws/tiam/moveset"
 	"github.com/shabbyrobe/go-num"
 )
 
@@ -161,18 +162,27 @@ func (bb *BitBoard) printBoard(b num.U128) {
 	}
 }
 
-func (bb *BitBoard) GetCartesianProductOfMoves() [][]SnakeMove {
-	var allMoves [][]SnakeMove
+func SplitSnakeMoveSet(moves SnakeMoveSet) []SnakeMoveSet {
+	split := []SnakeMoveSet{}
+	for _, move := range moveset.Split(moves.Set) {
+		split = append(split, SnakeMoveSet{Id: moves.Id, Set: move})
+	}
+
+	return split
+}
+
+func (bb *BitBoard) GetCartesianProductOfMoves() [][]SnakeMoveSet {
+	var allMoves [][]SnakeMoveSet
 	for id, snake := range bb.Snakes {
 		if snake.IsAlive() {
-			moves := bb.GetMoves(id)
+			moves := SplitSnakeMoveSet(bb.GetMoves(id))
 			allMoves = append(allMoves, moves)
 		}
 	}
 
-	var temp [][]SnakeMove
+	var temp [][]SnakeMoveSet
 	for _, a := range allMoves[0] {
-		temp = append(temp, []SnakeMove{a})
+		temp = append(temp, []SnakeMoveSet{a})
 	}
 
 	for i := 1; i < len(allMoves); i++ {
@@ -182,11 +192,11 @@ func (bb *BitBoard) GetCartesianProductOfMoves() [][]SnakeMove {
 	return temp
 }
 
-func CartesianProduct(movesA [][]SnakeMove, movesB []SnakeMove) [][]SnakeMove {
-	var result [][]SnakeMove
+func CartesianProduct(movesA [][]SnakeMoveSet, movesB []SnakeMoveSet) [][]SnakeMoveSet {
+	var result [][]SnakeMoveSet
 	for _, a := range movesA {
 		for _, b := range movesB {
-			var temp []SnakeMove
+			var temp []SnakeMoveSet
 			for _, m := range a {
 				temp = append(temp, m)
 			}

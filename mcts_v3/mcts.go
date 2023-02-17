@@ -3,13 +3,13 @@ package mctsv3
 import (
 	"context"
 	"fmt"
-	"log"
 	"math"
 	"math/rand"
 	"time"
 
 	api "github.com/nosnaws/tiam/battlesnake"
 	bitboard "github.com/nosnaws/tiam/bitboard2"
+	"github.com/nosnaws/tiam/moveset"
 )
 
 // TODO: the bitboard is going to remove snakes when they die,
@@ -20,12 +20,17 @@ import (
 
 // 0 - survival, 1 - food, 2 - aggressive
 type tactics [3]float64
+
+const survivalTac = tactic(0)
+const foodTac = tactic(1)
+const aggTac = tactic(2)
+
 type tactic int
 type reward struct {
 	tac   tactics
 	plays float64
 }
-type rewards map[bitboard.Dir]reward
+type rewards map[moveset.MoveSet]reward
 type rewardMatrix map[string]rewards
 type rolloutScore map[string]tactics
 
@@ -37,14 +42,15 @@ type MCTSConfig struct {
 
 type node struct {
 	b             *bitboard.BitBoard
-	previousMoves map[string]bitboard.Dir
-	prevMoves     []bitboard.SnakeMove
+	previousMoves map[string]moveset.MoveSet
+	prevMoves     []bitboard.SnakeMoveSet
 	depth         int
 	parent        *node
 	plays         float64
 	children      []*node
 	reward        rewardMatrix
 	me            string
+	gtValue       float64 // Game-theoretical value https://www.cs.drexel.edu/~santi/teaching/2012/CS680/papers/W4R2.pdf
 }
 
 var globalRoot *node
@@ -66,9 +72,9 @@ func ChooseNewRoot(root *node, state api.GameState) *node {
 		newState.Update(bitboard.CreateBitBoard(state))
 		newRoot.b = newState
 		newRoot.parent = nil
-		newRoot.prevMoves = []bitboard.SnakeMove{}
-		newRoot.previousMoves = make(map[string]bitboard.Dir)
-		decayTree(root, 0.8)
+		newRoot.prevMoves = []bitboard.SnakeMoveSet{}
+		newRoot.previousMoves = make(map[string]moveset.MoveSet)
+		decayTree(root, 0.6)
 
 		fmt.Println("SELECTED")
 		printNode(newRoot, state.You.ID)
@@ -165,7 +171,7 @@ func decayTree(n *node, decayConst float64) {
 }
 
 func CreateTree(b *bitboard.BitBoard, me string) *node {
-	r := createNode(b, []bitboard.SnakeMove{}, nil, me)
+	r := createNode(b, []bitboard.SnakeMoveSet{}, nil, me)
 	//globalRoot = r
 	//globalRoot.b = b
 	r.b = b
@@ -224,8 +230,8 @@ mctsloop:
 }
 
 func MCTSWorker(ctx context.Context, rand *rand.Rand, root *node, config MCTSConfig) rewards {
-	//t := determineTactic(root)
-	t := tactic(0)
+	t := determineTactic(root)
+	//t := tactic(0)
 	//availableWorkers := runtime.GOMAXPROCS(0)
 	//availableWorkers := 1
 	//fmt.Println("WORKERS", availableWorkers)
@@ -281,10 +287,10 @@ func selectFinalMove(root *node) bitboard.Dir {
 
 	myRewards := root.reward[me]
 	bestR := 0.0
-	bestMove := bitboard.Dir("")
+	bestMove := moveset.Create()
 	for m, r := range myRewards {
 		//ensure we always have a move
-		if bestMove == "" {
+		if moveset.IsEmpty(bestMove) {
 			bestMove = m
 		}
 
@@ -297,15 +303,15 @@ func selectFinalMove(root *node) bitboard.Dir {
 		}
 	}
 
-	return bestMove
+	return bitboard.MoveSetToDir(bestMove)
 }
 
 func bestMoveByTactic(myRewards rewards, t tactic) bitboard.Dir {
 	bestR := 0.0
-	bestMove := bitboard.Dir("")
+	bestMove := moveset.Create()
 	for m, r := range myRewards {
 		//ensure we always have a move
-		if bestMove == "" {
+		if moveset.IsEmpty(bestMove) {
 			bestMove = m
 		}
 
@@ -317,14 +323,14 @@ func bestMoveByTactic(myRewards rewards, t tactic) bitboard.Dir {
 		}
 	}
 
-	return bestMove
+	return bitboard.MoveSetToDir(bestMove)
 }
 
-func selectMostVisits(root *node) bitboard.Dir {
+func selectMostVisits(root *node) moveset.MoveSet {
 	me := root.me
 	myRewards := root.reward[me]
 	bestR := 0.0
-	bestMove := bitboard.Dir("")
+	bestMove := moveset.Create()
 
 	for m, r := range myRewards {
 		if r.plays > bestR {
@@ -337,10 +343,6 @@ func selectMostVisits(root *node) bitboard.Dir {
 }
 
 func determineTactic(root *node) tactic {
-	survivalThreshold := 0.6
-	survivalTac := tactic(0)
-	foodTac := tactic(1)
-	aggTac := tactic(2)
 	me := root.me
 
 	if root.plays == 0 {
@@ -361,16 +363,23 @@ func determineTactic(root *node) tactic {
 	//totalAgg / float64(root.plays),
 	//}
 
-	survivalIndicator := totalSurv / float64(root.plays)
+	return whatDo(root.b, root.me, root.plays, totalSurv, totalFood, totalAgg)
+}
+
+func whatDo(b *bitboard.BitBoard, me string, plays, survival, food, agg float64) tactic {
+	survivalThreshold := 0.6
+
+	survivalIndicator := survival / plays
 	fmt.Println("SURVIVAL INDICATOR", survivalIndicator)
 	if survivalIndicator < survivalThreshold {
 		fmt.Println("SURVIVAL MODE")
 		return survivalTac
 	}
 
-	aliveSnakes := root.b.GetOpponents()
-	if len(aliveSnakes) == 1 {
-		isLargestSnake := root.b.GetSnake(me).Length > aliveSnakes[0].Length
+	aliveSnakes := b.GetOpponents()
+	fmt.Println("LIVING SNAKES", aliveSnakes)
+	if len(b.Snakes) == 2 {
+		isLargestSnake := b.GetSnake(me).Length > aliveSnakes[0].Length
 
 		if isLargestSnake {
 			fmt.Println("AGGRESSIVE MODE")
@@ -381,16 +390,11 @@ func determineTactic(root *node) tactic {
 		}
 	}
 
-	fmt.Println("DEFAULTING TO EATING MODE")
-	return foodTac
+	fmt.Println("DEFAULTING TO SURVIVAL")
+	return survivalTac
 }
 
-func determineTacticFromRewards(rew rewards, totalPlays float64) tactic {
-	survivalThreshold := 0.6
-	survivalTac := tactic(0)
-	foodTac := tactic(1)
-	aggTac := tactic(2)
-
+func determineTacticFromRewards(b *bitboard.BitBoard, me string, rew rewards, totalPlays float64) tactic {
 	totalSurv := 0.0
 	totalFood := 0.0
 	totalAgg := 0.0
@@ -400,15 +404,7 @@ func determineTacticFromRewards(rew rewards, totalPlays float64) tactic {
 		totalAgg += r.tac[aggTac]
 	}
 
-	survivalIndicator := totalSurv / totalPlays
-	log.Println("SURVIVAL INDICATOR", survivalIndicator)
-	if survivalIndicator < survivalThreshold {
-		fmt.Println("SURVIVAL MODE")
-		return survivalTac
-	}
-
-	log.Println("DEFAULTING TO EATING MODE")
-	return foodTac
+	return whatDo(b, me, totalPlays, totalSurv, totalFood, totalAgg)
 }
 
 func selectNode(n *node, state *bitboard.BitBoard, minPlays, lim int, t tactic) *node {
@@ -440,7 +436,7 @@ func selectNode(n *node, state *bitboard.BitBoard, minPlays, lim int, t tactic) 
 	//fmt.Println("CHILD", c.plays, c.previousMoves, c.reward)
 	//}
 
-	selectedMoves := []bitboard.SnakeMove{}
+	selectedMoves := []bitboard.SnakeMoveSet{}
 	for id, snake := range state.Snakes {
 		if snake.IsAlive() {
 			tactic := t
@@ -483,9 +479,9 @@ func selectNode(n *node, state *bitboard.BitBoard, minPlays, lim int, t tactic) 
 //return unexplored[0]
 //}
 
-func isStateEqual(a []bitboard.SnakeMove, b map[string]bitboard.Dir) bool {
+func isStateEqual(a []bitboard.SnakeMoveSet, b map[string]moveset.MoveSet) bool {
 	for _, m := range a {
-		if m.Dir != b[m.Id] {
+		if m.Set != b[m.Id] {
 			return false
 		}
 	}
@@ -504,15 +500,15 @@ func expand(n *node, b *bitboard.BitBoard) {
 	}
 }
 
-func movesToMap(moves []bitboard.SnakeMove) map[string]bitboard.Dir {
-	m := make(map[string]bitboard.Dir, len(moves))
+func movesToMap(moves []bitboard.SnakeMoveSet) map[string]moveset.MoveSet {
+	m := make(map[string]moveset.MoveSet, len(moves))
 	for _, move := range moves {
-		m[move.Id] = move.Dir
+		m[move.Id] = move.Set
 	}
 	return m
 }
 
-func createNode(b *bitboard.BitBoard, prevMove []bitboard.SnakeMove, parent *node, me string) *node {
+func createNode(b *bitboard.BitBoard, prevMove []bitboard.SnakeMoveSet, parent *node, me string) *node {
 	depth := 0
 	if parent != nil {
 		depth = parent.depth + 1
@@ -537,12 +533,12 @@ func createNode(b *bitboard.BitBoard, prevMove []bitboard.SnakeMove, parent *nod
 func createRewardMatrix(b *bitboard.BitBoard) rewardMatrix {
 	rewardMatrix := make(rewardMatrix)
 	for id := range b.Snakes {
-		moves := b.GetMoves(id)
+		moves := moveset.Split(b.GetMoves(id).Set)
 		newR := make(rewards)
 		for _, m := range moves {
 			moveR := reward{}
 			moveR.tac = tactics{0, 0, 0}
-			newR[m.Dir] = moveR
+			newR[m] = moveR
 		}
 		rewardMatrix[id] = newR
 	}
@@ -588,6 +584,8 @@ func rollout(b *bitboard.BitBoard, meId string, turnLimit int, rand *rand.Rand) 
 		survival := 0
 		if snake.IsAlive() {
 			survival = 1
+		} else {
+			survival = -1
 		}
 
 		scores[id] = tactics{
@@ -636,25 +634,24 @@ func backpropagate(n *node, rolloutReward rolloutScore) {
 	backpropagate(n.parent, rolloutReward)
 }
 
-func bestMove(n *node, b *bitboard.BitBoard, id string, minPlays int, t tactic) bitboard.SnakeMove {
-	bestMove := bitboard.SnakeMove{}
+func bestMove(n *node, b *bitboard.BitBoard, id string, minPlays int, t tactic) bitboard.SnakeMoveSet {
+	bestMove := moveset.Create()
 	bestUtc := 0.0
 
-	moves := b.GetMoves(id)
-	for _, m := range moves {
-		v := uct(n, minPlays, t, id, m.Dir)
+	for dir := range n.reward[id] {
+		v := uct(n, minPlays, t, id, dir)
 		if v > bestUtc {
 			bestUtc = v
-			bestMove = m
+			bestMove = dir
 		}
 	}
 	//fmt.Println("BEST UTC", bestMove, bestUtc)
 
 	//fmt.Println("SELECTED MOVE", children[0].previousMoves[id], uct(children[0], minPlays, t, id))
-	return bitboard.SnakeMove{Id: id, Dir: bestMove.Dir}
+	return bitboard.SnakeMoveSet{Id: id, Set: bestMove}
 }
 
-func uct(n *node, minPlays int, t tactic, id string, move bitboard.Dir) float64 {
+func uct(n *node, minPlays int, t tactic, id string, move moveset.MoveSet) float64 {
 	if n.reward[id][move].plays < float64(minPlays) {
 		return math.MaxFloat64
 	}
@@ -674,6 +671,7 @@ func calculateUCT(n *node, score float64, plays float64, minPlays int) float64 {
 	//if n.plays < minPlays {
 	//return math.MaxFloat64
 	//}
+
 	parentPlays := n.plays
 	explorConst := math.Sqrt(2)
 
@@ -795,4 +793,3 @@ func tacticValue(tactics tactics, t tactic) float64 {
 ////fmt.Println("END ROLLOUT", rewards)
 ////return tactics{survivalScore, foodScore, snakesKilledScore}
 //return score
-//}

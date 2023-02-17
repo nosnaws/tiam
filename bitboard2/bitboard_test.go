@@ -5,6 +5,7 @@ import (
 	"testing"
 
 	api "github.com/nosnaws/tiam/battlesnake"
+	"github.com/nosnaws/tiam/moveset"
 	"github.com/shabbyrobe/go-num"
 )
 
@@ -95,7 +96,10 @@ func TestAdvanceBoardTurnDamage(t *testing.T) {
 	}
 
 	board := CreateBitBoard(state)
-	board.AdvanceTurn([]SnakeMove{{Id: me.ID, Dir: Up}})
+	board.AdvanceTurn([]SnakeMoveSet{{
+		Id:  me.ID,
+		Set: moveset.SetUp(moveset.Create()),
+	}})
 
 	if board.GetSnake(me.ID).health != 99 {
 		fmt.Println(board.GetSnake(me.ID).health)
@@ -132,9 +136,9 @@ func TestHeadToHead(t *testing.T) {
 	}
 	board := CreateBitBoard(state)
 
-	moves := []SnakeMove{
-		{Id: me.ID, Dir: Down},
-		{Id: two.ID, Dir: Right},
+	moves := []SnakeMoveSet{
+		{Id: me.ID, Set: moveset.SetDown(moveset.Create())},
+		{Id: two.ID, Set: moveset.SetRight(moveset.Create())},
 	}
 	board.AdvanceTurn(moves)
 
@@ -172,7 +176,7 @@ func TestAdvanceBoardHazardDamage(t *testing.T) {
 		},
 	}
 	board := CreateBitBoard(state)
-	board.AdvanceTurn([]SnakeMove{{Id: me.ID, Dir: Up}})
+	board.AdvanceTurn([]SnakeMoveSet{{Id: me.ID, Set: moveset.SetUp(moveset.Create())}})
 
 	if board.GetSnake(me.ID) != nil {
 		fmt.Println(board.GetSnake(me.ID).health)
@@ -203,7 +207,7 @@ func TestAdvanceBoardEatFood(t *testing.T) {
 		You: me,
 	}
 	board := CreateBitBoard(state)
-	board.AdvanceTurn([]SnakeMove{{Id: me.ID, Dir: Up}})
+	board.AdvanceTurn([]SnakeMoveSet{{Id: me.ID, Set: moveset.SetUp(moveset.Create())}})
 
 	snake := board.GetSnake(me.ID)
 	oldTail := snake.getTailIndex()
@@ -220,7 +224,7 @@ func TestAdvanceBoardEatFood(t *testing.T) {
 		panic("swapped head and tail!")
 	}
 
-	board.AdvanceTurn([]SnakeMove{{Id: me.ID, Dir: Up}})
+	board.AdvanceTurn([]SnakeMoveSet{{Id: me.ID, Set: moveset.SetUp(moveset.Create())}})
 
 	snake = board.GetSnake(me.ID)
 	if snake.health != 99 {
@@ -257,10 +261,11 @@ func TestAdvanceBoardOutOfBounds(t *testing.T) {
 		You: me,
 	}
 	board := CreateBitBoard(state)
-	board.AdvanceTurn([]SnakeMove{{Id: me.ID, Dir: Right}})
+	board.AdvanceTurn([]SnakeMoveSet{{Id: me.ID, Set: moveset.SetRight(moveset.Create())}})
 
 	if board.GetSnake(me.ID) != nil {
-		panic("Did not remove snake from board!")
+		board.Print()
+		panic("Did not remove snake from board right!")
 	}
 
 	//t.Skip()
@@ -285,10 +290,10 @@ func TestAdvanceBoardOutOfBounds(t *testing.T) {
 	}
 	board = CreateBitBoard(state)
 
-	board.AdvanceTurn([]SnakeMove{{Id: me.ID, Dir: Left}})
+	board.AdvanceTurn([]SnakeMoveSet{{Id: me.ID, Set: moveset.SetLeft(moveset.Create())}})
 
 	if board.GetSnake(me.ID) != nil {
-		panic("Did not remove snake from board!")
+		panic("Did not remove snake from board left!")
 	}
 
 	//t.Skip()
@@ -312,10 +317,10 @@ func TestAdvanceBoardOutOfBounds(t *testing.T) {
 		You: me,
 	}
 	board = CreateBitBoard(state)
-	board.AdvanceTurn([]SnakeMove{{Id: me.ID, Dir: Up}})
+	board.AdvanceTurn([]SnakeMoveSet{{Id: me.ID, Set: moveset.SetUp(moveset.Create())}})
 
 	if board.GetSnake(me.ID) != nil {
-		panic("Did not remove snake from board!")
+		panic("Did not remove snake from board top!")
 	}
 
 	//t.Skip()
@@ -339,10 +344,10 @@ func TestAdvanceBoardOutOfBounds(t *testing.T) {
 		You: me,
 	}
 	board = CreateBitBoard(state)
-	board.AdvanceTurn([]SnakeMove{{Id: me.ID, Dir: Down}})
+	board.AdvanceTurn([]SnakeMoveSet{{Id: me.ID, Set: moveset.SetDown(moveset.Create())}})
 
 	if board.GetSnake(me.ID) != nil {
-		panic("Did not remove snake from board!")
+		panic("Did not remove snake from board bottom!")
 	}
 }
 
@@ -371,7 +376,10 @@ func TestAdvanceBoardSnakeCollision(t *testing.T) {
 		You: me,
 	}
 	board := CreateBitBoard(state)
-	board.AdvanceTurn([]SnakeMove{{Id: me.ID, Dir: Up}, {Id: enemy.ID, Dir: Down}})
+	board.AdvanceTurn([]SnakeMoveSet{
+		{Id: me.ID, Set: moveset.SetUp(moveset.Create())},
+		{Id: enemy.ID, Set: moveset.SetDown(moveset.Create())},
+	})
 
 	if board.GetSnake(enemy.ID) != nil {
 		fmt.Println(board)
@@ -403,7 +411,7 @@ func TestAdvanceBoardSelfCollision(t *testing.T) {
 		You: me,
 	}
 	board := CreateBitBoard(state)
-	board.AdvanceTurn([]SnakeMove{{Id: me.ID, Dir: Left}})
+	board.AdvanceTurn([]SnakeMoveSet{{Id: me.ID, Set: moveset.SetLeft(moveset.Create())}})
 
 	if board.GetSnake(me.ID) != nil {
 		panic("Should have killed me!")
@@ -431,7 +439,7 @@ func TestAdvanceBoardFollowTail(t *testing.T) {
 		You: me,
 	}
 	board := CreateBitBoard(state)
-	board.AdvanceTurn([]SnakeMove{{Id: me.ID, Dir: Up}})
+	board.AdvanceTurn([]SnakeMoveSet{{Id: me.ID, Set: moveset.SetUp(moveset.Create())}})
 
 	if board.GetSnake(me.ID) == nil {
 		panic("Snake was killed!")
@@ -466,7 +474,10 @@ func TestAdvanceBoardFollowTail(t *testing.T) {
 		You: me,
 	}
 	board = CreateBitBoard(state)
-	board.AdvanceTurn([]SnakeMove{{Id: me.ID, Dir: Up}, {Id: enemy.ID, Dir: Left}})
+	board.AdvanceTurn([]SnakeMoveSet{
+		{Id: me.ID, Set: moveset.SetUp(moveset.Create())},
+		{Id: enemy.ID, Set: moveset.SetLeft(moveset.Create())},
+	})
 
 	if board.GetSnake(me.ID) == nil {
 		panic("Snake was killed!")
@@ -501,7 +512,10 @@ func TestAdvanceBoardFollowTail(t *testing.T) {
 		You: me,
 	}
 	board = CreateBitBoard(state)
-	board.AdvanceTurn([]SnakeMove{{Id: me.ID, Dir: Up}, {Id: enemy.ID, Dir: Left}})
+	board.AdvanceTurn([]SnakeMoveSet{
+		{Id: me.ID, Set: moveset.SetUp(moveset.Create())},
+		{Id: enemy.ID, Set: moveset.SetLeft(moveset.Create())},
+	})
 
 	if board.GetSnake(me.ID) != nil {
 		panic("Snake was not killed!")
@@ -528,7 +542,7 @@ func TestAdvanceBoardMoveOnNeck(t *testing.T) {
 		You: me,
 	}
 	board := CreateBitBoard(state)
-	board.AdvanceTurn([]SnakeMove{{Id: me.ID, Dir: Down}})
+	board.AdvanceTurn([]SnakeMoveSet{{Id: me.ID, Set: moveset.SetDown(moveset.Create())}})
 
 	if board.GetSnake(me.ID) != nil {
 		panic("Should have killed me!")
@@ -560,7 +574,7 @@ func TestAdvanceBoardWrapped(t *testing.T) {
 		},
 	}
 	board := CreateBitBoard(state)
-	board.AdvanceTurn([]SnakeMove{{Id: me.ID, Dir: Right}})
+	board.AdvanceTurn([]SnakeMoveSet{{Id: me.ID, Set: moveset.SetRight(moveset.Create())}})
 	headBoard := board.GetSnake(me.ID).headBoard
 
 	if board.GetSnake(me.ID) == nil {
@@ -601,7 +615,7 @@ func TestAdvanceBoardWrapped(t *testing.T) {
 		},
 	}
 	board = CreateBitBoard(state)
-	board.AdvanceTurn([]SnakeMove{{Id: me.ID, Dir: Up}})
+	board.AdvanceTurn([]SnakeMoveSet{{Id: me.ID, Set: moveset.SetUp(moveset.Create())}})
 
 	if board.GetSnake(me.ID) == nil {
 		panic("Should not have killed me!")
@@ -634,7 +648,7 @@ func TestAdvanceBoardWrapped(t *testing.T) {
 		},
 	}
 	board = CreateBitBoard(state)
-	board.AdvanceTurn([]SnakeMove{{Id: me.ID, Dir: Down}})
+	board.AdvanceTurn([]SnakeMoveSet{{Id: me.ID, Set: moveset.SetDown(moveset.Create())}})
 
 	if board.GetSnake(me.ID) == nil {
 		panic("Should not have killed me!")
@@ -667,7 +681,7 @@ func TestAdvanceBoardWrapped(t *testing.T) {
 		},
 	}
 	board = CreateBitBoard(state)
-	board.AdvanceTurn([]SnakeMove{{Id: me.ID, Dir: Right}})
+	board.AdvanceTurn([]SnakeMoveSet{{Id: me.ID, Set: moveset.SetRight(moveset.Create())}})
 
 	if board.GetSnake(me.ID) == nil {
 		panic("Should not have killed me!")
@@ -702,9 +716,11 @@ func TestGetMoves(t *testing.T) {
 		},
 	}
 	board := CreateBitBoard(state)
+	fmt.Println("START")
 	moves := board.GetMoves(me.ID)
 
-	if len(moves) != 3 {
+	fmt.Println(moves)
+	if len(moveset.ToDirs(moves.Set)) != 3 {
 		board.Print()
 		fmt.Println(moves)
 		panic("wrong number of moves!")
@@ -738,9 +754,9 @@ func TestHeadToHeadOnFood(t *testing.T) {
 		You: me,
 	}
 	board := CreateBitBoard(state)
-	board.AdvanceTurn([]SnakeMove{
-		{Id: me.ID, Dir: Right},
-		{Id: s2.ID, Dir: Left},
+	board.AdvanceTurn([]SnakeMoveSet{
+		{Id: me.ID, Set: moveset.SetRight(moveset.Create())},
+		{Id: s2.ID, Set: moveset.SetLeft(moveset.Create())},
 	})
 
 	if !board.IsGameOver() {

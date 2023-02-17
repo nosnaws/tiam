@@ -62,8 +62,10 @@ func GetNextMove(board *bitboard.BitBoard, config MCTSConfig, me string) bitboar
 
 	}
 
-	fmt.Println("AGGREGATE", totalRewards)
-	tactic := determineTacticFromRewards(totalRewards, totalPlays)
+	for dir, rew := range totalRewards {
+		fmt.Println("AGGREGATE", bitboard.MoveSetToDir(dir), rew)
+	}
+	tactic := determineTacticFromRewards(board, me, totalRewards, totalPlays)
 
 	return bestMoveByTactic(totalRewards, tactic)
 }
