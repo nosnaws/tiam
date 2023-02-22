@@ -11,11 +11,11 @@ func (bb *BitBoard) SpawnHazardsRoyale() {
 		return
 	}
 
-	if bb.turn < bb.hazardSpawnTime {
+	if bb.Turn < bb.hazardSpawnTime {
 		return
 	}
 
-	numShrinks := bb.turn / bb.hazardSpawnTime
+	numShrinks := bb.Turn / bb.hazardSpawnTime
 	minX, maxX := 0, bb.width-1
 	minY, maxY := 0, bb.height-1
 

@@ -11,6 +11,11 @@ import (
 	"strings"
 	"sync"
 	"time"
+
+	"github.com/nosnaws/tiam/arena"
+	"github.com/nosnaws/tiam/arena/agents"
+	bitboard "github.com/nosnaws/tiam/bitboard2"
+	"github.com/nosnaws/tiam/paranoid"
 )
 
 // [0] = food/health weighting a
@@ -71,7 +76,7 @@ func CreateEvolution(gens, popSize, numParents, roundLength int, mutConst, mutPr
 func (u *unnaturalSelection) Evolve(ctx context.Context) {
 	// initialize the population
 	//initialPop := u.initializePopulation()
-	initialPop := u.initializePopFromCSV("/Users/aswanson/dev/innovation/tiam/save_gen_40.csv")
+	initialPop := u.initializePopFromCSV("/Users/aswanson/dev/innovation/tiam/gen_60_feb21.csv")
 	u.currentPop = initialPop
 	fmt.Println("initial pop ", initialPop)
 
@@ -119,19 +124,22 @@ func (u *unnaturalSelection) Evolve(ctx context.Context) {
 	fmt.Println("APEX", overAllBest)
 }
 
+func randFloat(min, max int) float64 {
+	return float64(min) + rand.Float64()*float64(max-min)
+}
+
 func (u *unnaturalSelection) initializePopulation() []canditate {
-	rand.Seed(time.Now().UnixNano())
 	pop := []canditate{}
 
 	for i := 0; i < u.populationSize; i++ {
 		cand := canditate{
 			name: genRandomName(),
 			geno: []float64{
-				rand.Float64() * float64(rand.Intn(10)), // food a
-				rand.Float64() * float64(rand.Intn(10)), // food a
-				rand.Float64() * float64(rand.Intn(10)), // v a
-				rand.Float64() * float64(rand.Intn(10)), // v b
-				rand.Float64() * float64(rand.Intn(10)), // big snake reward
+				randFloat(0, 10), // food
+				randFloat(0, 10), // aggresive
+				randFloat(0, 10), // area
+				randFloat(0, 10), // length
+				randFloat(0, 10), // health
 			},
 			imageName: "huey",
 		}
@@ -187,12 +195,34 @@ func (u *unnaturalSelection) selection(ctx context.Context) (canditate, map[stri
 	// Get the fitness of the population
 	candidateSets := createGroups(u.currentPop)
 	scores := make(map[string]int)
-	for i, candidateSet := range candidateSets {
-		log.Println("running group ", i, candidateSet)
-		results := u.fitness(ctx, candidateSet)
 
-		scores[candidateSet[0].name] = results[0]
-		scores[candidateSet[1].name] = results[1]
+	for i := 0; i < len(candidateSets); i += 2 {
+		ch1 := make(chan [2]int)
+		ch2 := make(chan [2]int)
+
+		var wg sync.WaitGroup
+
+		wg.Add(2)
+		go func() {
+			log.Println("running group ", i, candidateSets[i])
+			ch1 <- u.fitnessArena(ctx, candidateSets[i])
+			wg.Done()
+		}()
+		go func() {
+			log.Println("running group ", i+1, candidateSets[i+1])
+			ch2 <- u.fitnessArena(ctx, candidateSets[i+1])
+			wg.Done()
+		}()
+
+		results1 := <-ch1
+		results2 := <-ch2
+		wg.Wait()
+
+		scores[candidateSets[i][0].name] = results1[0]
+		scores[candidateSets[i][1].name] = results1[1]
+
+		scores[candidateSets[i+1][0].name] = results2[0]
+		scores[candidateSets[i+1][1].name] = results2[1]
 	}
 
 	// grab best
@@ -240,6 +270,73 @@ func (u *unnaturalSelection) rouleteWheelSelection(parents []canditate, scores m
 	}
 
 	return selected
+}
+
+func (u *unnaturalSelection) fitnessArena(ctx context.Context, candidates []canditate) [2]int {
+	can1 := candidates[0]
+	can2 := candidates[1]
+
+	round := arena.Arena{
+		Agents: []arena.Agent{
+			{
+				Id: can1.name,
+				GetMove: func(bb *bitboard.BitBoard, s string) bitboard.SnakeMoveSet {
+					return paranoid.GetMoveArena(bb, s, 2, bitboard.BasicStateWeights{
+						Food:   can1.geno[0],
+						Aggr:   can1.geno[1],
+						Area:   can1.geno[2],
+						Length: can1.geno[3],
+						Health: can1.geno[4],
+					},
+					)
+				},
+			},
+			{
+				Id: can2.name,
+				GetMove: func(bb *bitboard.BitBoard, s string) bitboard.SnakeMoveSet {
+					return paranoid.GetMoveArena(bb, s, 2, bitboard.BasicStateWeights{
+						Food:   can2.geno[0],
+						Aggr:   can2.geno[1],
+						Area:   can2.geno[2],
+						Length: can2.geno[3],
+						Health: can2.geno[4],
+					},
+					)
+				},
+			},
+			{
+				Id: "eater",
+				GetMove: func(bb *bitboard.BitBoard, s string) bitboard.SnakeMoveSet {
+					return agents.GetEaterMove(bb, s)
+				},
+			},
+			{
+				Id: "random",
+				GetMove: func(bb *bitboard.BitBoard, s string) bitboard.SnakeMoveSet {
+					return agents.GetRandomMove(bb, s)
+				},
+			},
+		},
+		Rounds: u.roundLength,
+	}
+
+	round.Initialize()
+
+	round.Run()
+
+	scores := [2]int{}
+
+	for _, result := range round.Results {
+		if result.Winner == can1.name {
+			scores[0] += 1
+		} else if result.Winner == can2.name {
+			scores[1] += 1
+		}
+	}
+
+	log.Println("Finished group")
+
+	return scores
 }
 
 func (u *unnaturalSelection) fitness(ctx context.Context, candidates []canditate) [2]int {
@@ -319,7 +416,6 @@ func (u *unnaturalSelection) fitness(ctx context.Context, candidates []canditate
 }
 
 func (u *unnaturalSelection) crossover(canA, canB canditate) []canditate {
-	rand.Seed(time.Now().UnixNano())
 	// Return the original candidates if crossover is not performed
 	if rand.Float64() > u.crossoverProbability {
 		log.Println("No crossover, keeping genotype from parents")

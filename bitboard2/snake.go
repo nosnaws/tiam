@@ -82,6 +82,10 @@ func (s *snake) getTailIndex() int {
 	return s.body[0]
 }
 
+func (s *snake) GetHealth() int {
+	return s.health
+}
+
 func (s *snake) moveHead(newIdx int, dir Dir, width uint) {
 	if dir == Left {
 		s.headBoard = s.headBoard.Rsh(1)

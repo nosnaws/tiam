@@ -2,16 +2,20 @@ package main
 
 import (
 	"context"
+	"math/rand"
+	"time"
 
 	"github.com/nosnaws/tiam/gmo"
 )
 
 func main() {
+	rand.Seed(time.Now().UnixMicro())
+
 	ctx := context.Background()
 	generations := 60
-	numParents := 10
-	populationSize := 100
-	roundSize := 10
+	numParents := 20
+	populationSize := 200
+	roundSize := 20
 	mutationCon := 0.8
 	mutationProb := 0.2
 	crossProb := 0.8

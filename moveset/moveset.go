@@ -120,7 +120,7 @@ func ToDirs(ms MoveSet) []Dir {
 	return dirs
 }
 
-func GetRandomMove(ms MoveSet, rand *rand.Rand) MoveSet {
+func GetRandomMove(ms MoveSet) MoveSet {
 	numMoves := CountMoves(ms)
 	if numMoves < 2 {
 		return ms

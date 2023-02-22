@@ -46,7 +46,7 @@ func createRow(item canditate, score int) string {
 }
 
 func createHeaderRow() string {
-	return "NAME,FITNESS,FOOD_A,FOOD_B,VORONOI_A,VORONOI_B,LENGTH_WEIGHT\n"
+	return "NAME,FITNESS,FOOD,AGG,AREA,LENGTH,HEALTH\n"
 }
 
 func CombineCSVs() {
@@ -58,7 +58,7 @@ func CombineCSVs() {
 	}
 
 	allRows := []string{}
-	allRows = append(allRows, "NAME,FITNESS,FOOD_A,FOOD_B,VORONOI_A,VORONOI_B,LENGTH_WEIGHT,GENERATION\n")
+	allRows = append(allRows, createHeaderRow())
 	for _, file := range dir {
 		genNum := genRegex.FindStringSubmatch(file.Name())
 		fileDir := baseDir + "/" + file.Name()

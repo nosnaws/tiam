@@ -48,7 +48,8 @@ type BitBoard struct {
 	totalFood       int
 	isWrapped       bool
 	isRoyale        bool
-	turn            int
+	Turn            int
+	ShouldSpawnFood bool
 }
 
 func (bb *BitBoard) createEmptyBoard() num.U128 {
@@ -98,7 +99,7 @@ func CreateBitBoard(state api.GameState) *BitBoard {
 		totalFood:       len(state.Board.Food),
 		isWrapped:       state.Game.Ruleset.Name == "wrapped",
 		isRoyale:        state.Game.Map == "royale",
-		turn:            state.Turn,
+		Turn:            state.Turn,
 	}
 	bb.empty = bb.createEmptyBoard()
 
@@ -260,6 +261,132 @@ func (bb *BitBoard) GetMoves(snakeId string) SnakeMoveSet {
 	return moves
 }
 
+func (bb *BitBoard) GetMovesNoDefault(snakeId string) SnakeMoveSet {
+	width := uint(bb.width)
+	moves := SnakeMoveSet{
+		Id: snakeId,
+	}
+	ms := moveset.Create()
+
+	snake := bb.GetSnake(snakeId)
+	if !snake.IsAlive() {
+		return moves
+	}
+
+	//headIndex := snake.GetHeadIndex()
+	headBoard := snake.getHeadBoard()
+	//fmt.Println("HEAD BOARD")
+	//bb.printBoard(headBoard)
+
+	leftBoard := headBoard.Rsh(1)
+	//fmt.Println("LEFT BOARD")
+	//bb.printBoard(leftBoard)
+	rightBoard := headBoard.Lsh(1)
+	//fmt.Println("RIGHT BOARD")
+	//bb.printBoard(rightBoard)
+	upBoard := headBoard.Lsh(width)
+	//fmt.Println("UP BOARD")
+	//bb.printBoard(upBoard)
+	downBoard := headBoard.Rsh(width)
+	//fmt.Println("DOWN BOARD")
+	//bb.printBoard(downBoard)
+
+	// LEFT
+	if headBoard.And(LEFT_MASK).BitLen() == 0 {
+		if leftBoard.And(bb.empty).BitLen() > 0 {
+			ms = moveset.SetLeft(ms)
+		}
+	}
+
+	// RIGHT
+	if headBoard.And(RIGHT_MASK).BitLen() == 0 {
+		if rightBoard.And(bb.empty).BitLen() > 0 {
+			ms = moveset.SetRight(ms)
+		}
+	}
+
+	// UP
+	if headBoard.And(TOP_MASK).BitLen() == 0 {
+		if upBoard.And(bb.empty).BitLen() > 0 {
+			ms = moveset.SetUp(ms)
+		}
+	}
+
+	// DOWN
+	if headBoard.And(BOTTOM_MASK).BitLen() == 0 {
+		if downBoard.And(bb.empty).BitLen() > 0 {
+			ms = moveset.SetDown(ms)
+		}
+	}
+
+	moves.Set = ms
+
+	return moves
+}
+
+func (bb *BitBoard) SplitMoves(mset SnakeMoveSet) []SnakeMoveSet {
+	moves := []SnakeMoveSet{}
+	for _, m := range moveset.Split(mset.Set) {
+		moves = append(moves, SnakeMoveSet{
+			Id:  mset.Id,
+			Set: m,
+		})
+	}
+
+	return moves
+}
+
+func (bb *BitBoard) GetNeighbors(index int) moveset.MoveSet {
+	width := uint(bb.width)
+	board := num.U128From16(0)
+	board = board.SetBit(index, 1)
+
+	ms := moveset.Create()
+
+	leftBoard := board.Rsh(1)
+	//fmt.Println("LEFT BOARD")
+	//bb.printBoard(leftBoard)
+	rightBoard := board.Lsh(1)
+	//fmt.Println("RIGHT BOARD")
+	//bb.printBoard(rightBoard)
+	upBoard := board.Lsh(width)
+	//fmt.Println("UP BOARD")
+	//bb.printBoard(upBoard)
+	downBoard := board.Rsh(width)
+	//fmt.Println("DOWN BOARD")
+	//bb.printBoard(downBoard)
+
+	// LEFT
+	if board.And(LEFT_MASK).BitLen() == 0 {
+		if leftBoard.And(bb.empty).BitLen() > 0 {
+			ms = moveset.SetLeft(ms)
+		}
+	}
+
+	// RIGHT
+	if board.And(RIGHT_MASK).BitLen() == 0 {
+		if rightBoard.And(bb.empty).BitLen() > 0 {
+			ms = moveset.SetRight(ms)
+		}
+	}
+
+	// UP
+	if board.And(TOP_MASK).BitLen() == 0 {
+		if upBoard.And(bb.empty).BitLen() > 0 {
+			ms = moveset.SetUp(ms)
+		}
+	}
+
+	// DOWN
+	if board.And(BOTTOM_MASK).BitLen() == 0 {
+		if downBoard.And(bb.empty).BitLen() > 0 {
+			ms = moveset.SetDown(ms)
+		}
+	}
+
+	return ms
+}
+
 func (bb *BitBoard) GetSnake(id string) *snake {
 	if snake, ok := bb.Snakes[id]; ok {
 		return snake
@@ -290,7 +417,7 @@ func (bb *BitBoard) isSnakeOutOfBounds(id string, headIdx int, ms moveset.MoveSe
 
 func (bb *BitBoard) AdvanceTurn(allMoves []SnakeMoveSet) {
 	deadSnakes := []string{}
-	bb.turn += 1
+	bb.Turn += 1
 
 	for _, move := range allMoves {
 		snake := bb.GetSnake(move.Id)
@@ -407,10 +534,12 @@ func (bb *BitBoard) AdvanceTurn(allMoves []SnakeMoveSet) {
 		}
 	}
 
-	if bb.isRoyale {
-		bb.SpawnHazardsRoyale()
+	//if bb.isRoyale {
+	//bb.SpawnHazardsRoyale()
+	//}
+	if bb.ShouldSpawnFood {
+		bb.SpawnFood()
 	}
-	bb.SpawnFood()
 
 	bb.empty = bb.createEmptyBoard()
 }
@@ -423,6 +552,14 @@ func (bb *BitBoard) killSnake(id string) {
 	}
 }
 
+func (bb *BitBoard) IsSnakeAlive(id string) bool {
+	snake := bb.GetSnake(id)
+	if snake == nil {
+		return false
+	}
+	return snake.IsAlive()
+}
+
 func (bb *BitBoard) IsIndexOccupied(i int) bool {
 	tester := num.U128From16(0)
 	tester = tester.SetBit(i, 1)
@@ -431,10 +568,7 @@ func (bb *BitBoard) IsIndexOccupied(i int) bool {
 }
 
 func (bb *BitBoard) IsIndexFood(i int) bool {
-	tester := num.U128From16(0)
-	tester = tester.SetBit(i, 1)
-
-	return tester.And(bb.food).BitLen() > 0
+	return bb.food.Bit(i) == 1
 }
 
 func (bb *BitBoard) IsIndexHazard(i int) bool {
@@ -455,16 +589,17 @@ func (bb *BitBoard) Clone() *BitBoard {
 	empty := bb.empty
 
 	return &BitBoard{
-		food:         food,
-		hazards:      hazards,
-		empty:        empty,
-		Snakes:       snakes,
-		width:        bb.width,
-		height:       bb.height,
-		hazardDamage: bb.hazardDamage,
-		isWrapped:    bb.isWrapped,
-		isRoyale:     bb.isRoyale,
-		turn:         bb.turn,
+		food:            food,
+		hazards:         hazards,
+		empty:           empty,
+		Snakes:          snakes,
+		width:           bb.width,
+		height:          bb.height,
+		hazardDamage:    bb.hazardDamage,
+		isWrapped:       bb.isWrapped,
+		isRoyale:        bb.isRoyale,
+		Turn:            bb.Turn,
+		ShouldSpawnFood: bb.ShouldSpawnFood,
 	}
 }
 

@@ -15,6 +15,9 @@ run:
 compile:
 	go build -o tiam ./snakes/tiam/
 
+compile_lancer:
+	go build -o lancer ./snakes/lancer/
+
 build_random:
 	docker build -t random -f "Dockerfile.random" .
 
@@ -30,11 +33,17 @@ build_mini:
 run_mini:
 	go run ./snakes/mini/
 
+run_lancer:
+	go run ./snakes/lancer/
+
 run_huey:
 	go run ./snakes/huey/
 
 run_mcts:
 	go run ./snakes/mcts/
+
+run_monte:
+	go run ./snakes/monte_carlo/
 
 build_all: build build_random build_eater
 

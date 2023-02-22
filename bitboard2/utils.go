@@ -102,13 +102,13 @@ func (bb *BitBoard) indexToString(i int) string {
 	board := num.U128From16(0)
 	board = board.SetBit(i, 1)
 
-	for _, s := range bb.Snakes {
+	for id, s := range bb.Snakes {
 		if !s.IsAlive() {
 			continue
 		}
 
 		if s.GetHeadIndex() == i {
-			return " hh "
+			return fmt.Sprintf(" %sh ", firstN(id, 1))
 		}
 		if board.And(s.board).BitLen() > 0 {
 			return " ss "
@@ -129,6 +129,17 @@ func (bb *BitBoard) indexToString(i int) string {
 	//}
 
 	return " __ "
+}
+
+func firstN(s string, n int) string {
+	i := 0
+	for j := range s {
+		if i == n {
+			return s[:j]
+		}
+		i++
+	}
+	return s
 }
 
 func (bb *BitBoard) Print() {
