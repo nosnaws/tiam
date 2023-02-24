@@ -22,6 +22,7 @@ type BasicStateWeights struct {
 	Area   float64
 	Length float64
 	Health float64
+	Tail   float64
 }
 
 // original scores
@@ -45,6 +46,7 @@ func (bb *BitBoard) BasicStateScore(snakeId string, depth int, weights BasicStat
 	foodScore := bb.FoodScore(snakeId)
 	killScore := bb.KillScore(snakeId)
 	areaScore := bb.AreaControlScore(snakeId)
+	tailPathScore := bb.TailPathScore(snakeId)
 
 	length := float64(snake.Length)
 	health := float64(snake.health)
@@ -56,8 +58,28 @@ func (bb *BitBoard) BasicStateScore(snakeId string, depth int, weights BasicStat
 	total += areaScore * weights.Area
 	total += length * weights.Length
 	total += health * weights.Health
+	total += tailPathScore * weights.Tail
 
 	return total
+}
+
+func (bb *BitBoard) TailPathScore(snakeId string) float64 {
+	score := 0.0
+	snake := bb.GetSnake(snakeId)
+
+	tailIdx := snake.getTailIndex()
+	tailPathLength := BFS(bb, snake.GetHeadIndex(), func(i int) bool {
+		if i == tailIdx {
+			return true
+		}
+		return false
+	})
+
+	if tailPathLength != -1 {
+		score = 1
+	}
+
+	return score
 }
 
 func (bb *BitBoard) KillScore(snakeId string) float64 {

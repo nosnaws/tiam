@@ -49,11 +49,12 @@ func GetMoveArena(board *bitboard.BitBoard, maxId string, maxDepth int, weights 
 
 func GetMoveID(board *bitboard.BitBoard, maxId string) bitboard.Dir {
 	weights := bitboard.BasicStateWeights{
-		Food:   4.165581,
-		Aggr:   12.623248,
-		Area:   7.454674,
-		Length: 8.788976,
-		Health: 3.698813,
+		Food:   4.17007,
+		Aggr:   5.97133,
+		Area:   6.268947,
+		Length: -0.352937,
+		Health: 1.473651,
+		Tail:   2.456908,
 	}
 
 	d, _ := time.ParseDuration("400ms")
