@@ -62,7 +62,7 @@ func GetMoveID(board *bitboard.BitBoard, maxId string) bitboard.Dir {
 	defer cancel()
 	result := IDNegamax(ctx, weights, board, maxId)
 
-	fmt.Println("MOVE", moveset.ToDirs(result.move), result.score)
+	log.Println("MOVE", moveset.ToDirs(result.move), result.score)
 
 	return bitboard.MoveSetToDir(result.move)
 }
