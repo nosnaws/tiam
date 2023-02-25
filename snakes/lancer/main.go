@@ -9,11 +9,11 @@ import (
 	"runtime"
 	"time"
 
-	"strconv"
-
+	"github.com/newrelic/go-agent/v3/integrations/logcontext-v2/logWriter"
 	"github.com/newrelic/go-agent/v3/newrelic"
 	api "github.com/nosnaws/tiam/battlesnake"
 	instru "github.com/nosnaws/tiam/instrumentation"
+	"strconv"
 )
 
 const ServerID = "nosnaws/lancer"
@@ -134,6 +134,8 @@ func main() {
 		newrelic.ConfigAppName("Lancer"),
 		newrelic.ConfigLicense(nrLicenseKey),
 	)
+	writer := logWriter.New(os.Stdout, app)
+	log.SetOutput(writer)
 
 	http.HandleFunc(newrelic.WrapHandleFunc(app, "/", withServerID(HandleIndex)))
 	http.HandleFunc(newrelic.WrapHandleFunc(app, "/start", withServerID(HandleStart)))

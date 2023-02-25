@@ -69,6 +69,7 @@ func GetMoveID(board *bitboard.BitBoard, maxId string) bitboard.Dir {
 
 func IDNegamax(ctx context.Context, weights bitboard.BasicStateWeights, board *bitboard.BitBoard, maxId string) MinMaxScore {
 	currentDepth := 0
+	maxDepth := 0
 	currentMove := MinMaxScore{}
 
 negamaxLoop:
@@ -86,16 +87,19 @@ negamaxLoop:
 			break negamaxLoop
 		}
 
-		log.Println("Running depth", currentDepth)
+		//log.Println("Running depth", currentDepth)
 		result, ignore := negamax(ctx, weights, board, maxId, 0, 0, currentDepth, -math.MaxFloat64, math.MaxFloat64, true)
-		log.Println("Result", result, ignore)
+		//log.Println("Result", result, ignore)
 
 		if ignore {
 			continue
 		}
 
+		maxDepth = currentDepth
 		currentMove = result
 	}
+
+	log.Println("IDNegamax MAX DEPTH", maxDepth)
 
 	return currentMove
 }
