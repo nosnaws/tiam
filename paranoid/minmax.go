@@ -57,7 +57,7 @@ func GetMoveID(board *bitboard.BitBoard, maxId string) bitboard.Dir {
 		Tail:   2.456908,
 	}
 
-	d, _ := time.ParseDuration("400ms")
+	d, _ := time.ParseDuration("450ms")
 	ctx, cancel := context.WithTimeout(context.Background(), d)
 	defer cancel()
 	result := IDNegamax(ctx, weights, board, maxId)
