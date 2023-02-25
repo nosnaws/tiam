@@ -82,8 +82,8 @@ func CreateBitBoard(state api.GameState) *BitBoard {
 		snakes[snake.ID] = createSnake(snake, state.Board.Width)
 	}
 
-	foodBoard := createBoard(state.Board.Food, state.Board.Width)
-	hazardsBoard := createBoard(state.Board.Hazards, state.Board.Width)
+	foodBoard := createBoard(state.Board.Food, state.Board.Width, state.Board.Height)
+	hazardsBoard := createBoard(state.Board.Hazards, state.Board.Width, state.Board.Height)
 
 	bb := BitBoard{
 		food:            foodBoard,
@@ -108,9 +108,15 @@ func CreateBitBoard(state api.GameState) *BitBoard {
 	return &bb
 }
 
-func createBoard(coords []api.Coord, width int) num.U128 {
+func createBoard(coords []api.Coord, width int, height int) num.U128 {
 	board := num.U128From16(0)
 	for _, p := range coords {
+		if p.X < 0 || p.X >= width {
+			continue
+		}
+		if p.Y < 0 || p.Y >= height {
+			continue
+		}
 		board = board.SetBit(getIndex(p, width), 1)
 	}
 
