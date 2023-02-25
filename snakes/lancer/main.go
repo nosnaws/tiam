@@ -135,10 +135,10 @@ func main() {
 		newrelic.ConfigLicense(nrLicenseKey),
 	)
 
-	http.HandleFunc("/", withServerID(HandleIndex))
-	http.HandleFunc("/start", withServerID(HandleStart))
-	http.HandleFunc("/move", logRequest(withServerID((HandleMove(app)))))
-	http.HandleFunc("/end", withServerID(HandleEnd))
+	http.HandleFunc(newrelic.WrapHandleFunc(app, "/", withServerID(HandleIndex)))
+	http.HandleFunc(newrelic.WrapHandleFunc(app, "/start", withServerID(HandleStart)))
+	http.HandleFunc(newrelic.WrapHandleFunc(app, "/move", withServerID(HandleMove(app))))
+	http.HandleFunc(newrelic.WrapHandleFunc(app, "/end", withServerID(HandleEnd)))
 
 	log.Printf("Starting Battlesnake Server at http://0.0.0.0:%s...\n", port)
 	log.Fatal(http.ListenAndServe(":"+port, nil))
