@@ -5,7 +5,12 @@ type pair struct {
 	index uint16
 }
 
-func Voronoi(game *FastBoard, player SnakeId) int8 {
+type voronoiResult struct {
+	Score     map[SnakeId]int8
+	FoodDepth map[SnakeId]int
+}
+
+func Voronoi(game *FastBoard, player SnakeId) voronoiResult {
 
 	// create queue of indices
 	queue := []pair{}
@@ -14,6 +19,7 @@ func Voronoi(game *FastBoard, player SnakeId) int8 {
 	// create map of scores for indices
 	scores := make(map[SnakeId]int8)
 	depth := 0
+	food := make(map[SnakeId]int)
 
 	depthMark := pair{id: SnakeId(0), index: 0}
 	mark := SnakeId(0)
@@ -22,6 +28,7 @@ func Voronoi(game *FastBoard, player SnakeId) int8 {
 	// add snake heads to queue
 	// mark snake heads as visited
 	for id, head := range game.Heads {
+		food[id] = -1
 		if game.IsSnakeAlive(id) {
 			p := pair{id, head}
 			queue = append(queue, p)
@@ -75,9 +82,14 @@ func Voronoi(game *FastBoard, player SnakeId) int8 {
 			}
 
 			//      loop through neighbors of index
-			for _, neighbor := range game.GetNeighbors(current.index) {
+			neighbors := game.GetNeighbors(current.index)
+			for _, neighbor := range neighbors {
+				nIndex := IndexInDirection(neighbor, current.index, game.Width, game.Height, game.isWrapped)
+
+				if game.IsTileFood(nIndex) && food[current.id] == -1 {
+					food[current.id] = depth
+				}
 				//        if neighbor is in visited map
-				nIndex := IndexInDirection(neighbor, current.index, game.width, game.height, game.isWrapped)
 				if other, ok := visited[nIndex]; ok {
 					//          if visited map is not a mark and the visited snake does not equal the snake for the current index
 					if other != mark && other != current.id {
@@ -100,5 +112,5 @@ func Voronoi(game *FastBoard, player SnakeId) int8 {
 		}
 	}
 
-	return scores[player]
+	return voronoiResult{Score: scores, FoodDepth: food}
 }

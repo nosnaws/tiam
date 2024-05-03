@@ -1,0 +1,18 @@
+FROM golang:alpine AS builder
+
+WORKDIR /build
+ADD go.mod .
+COPY . .
+
+RUN go build -o tiam ./snakes/tiam
+
+FROM alpine
+
+WORKDIR /opt
+COPY --from=builder /build/tiam .
+
+EXPOSE 8080
+
+CMD ["./tiam"]
+
+

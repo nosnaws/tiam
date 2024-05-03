@@ -260,6 +260,42 @@ func TestRandomSnakeCollsionWrapped(t *testing.T) {
 	}
 }
 
+func TestGetNeighbors(t *testing.T) {
+	//t.Skip()
+	// e _ _
+	// s s _
+	// h s s
+	me := Battlesnake{
+		ID:     "me",
+		Health: 100,
+		Body:   []Coord{{X: 0, Y: 0}, {X: 1, Y: 0}, {X: 2, Y: 0}},
+	}
+	enemy := Battlesnake{
+		ID:     "enemy",
+		Health: 100,
+		Body:   []Coord{{X: 0, Y: 2}, {X: 0, Y: 1}, {X: 1, Y: 1}},
+	}
+	state := GameState{
+		Turn: 3,
+		Board: Board{
+			Snakes: []Battlesnake{me, enemy},
+			Height: 11,
+			Width:  11,
+		},
+		You: me,
+	}
+	board := BuildBoard(state)
+	//id := board.ids["me"]
+
+	moves := board.GetNeighbors(0)
+
+	if len(moves) != 0 {
+		fmt.Println(moves)
+		board.Print()
+		panic("Should not be able to move!")
+	}
+}
+
 func TestGetSnakeMoves(t *testing.T) {
 	//t.Skip()
 	// _ _ _
@@ -396,10 +432,10 @@ func TestBoardCreationTurn0(t *testing.T) {
 
 	board := BuildBoard(state)
 
-	if board.list[2].id != 1 {
+	if board.List[2].id != 1 {
 		panic("YouId is not 1")
 	}
-	if board.list[2].IsTripleStack() != true {
+	if board.List[2].IsTripleStack() != true {
 		panic("Did not triple stack snake!")
 	}
 
@@ -427,13 +463,13 @@ func TestBoardCreationTurn1(t *testing.T) {
 
 	board := BuildBoard(state)
 
-	if board.list[2].id != 1 {
+	if board.List[2].id != 1 {
 		panic("YouId is not 1")
 	}
-	if board.list[1].IsSnakeHead() != true {
+	if board.List[1].IsSnakeHead() != true {
 		panic("did not place snake head!")
 	}
-	if board.list[2].IsDoubleStack() != true {
+	if board.List[2].IsDoubleStack() != true {
 		panic("Did not double stack snake!")
 	}
 
@@ -461,23 +497,23 @@ func TestBoardCreation(t *testing.T) {
 
 	board := BuildBoard(state)
 
-	if board.list[2].id != 1 {
+	if board.List[2].id != 1 {
 		panic("YouId is not 1")
 	}
 
-	if board.list[2].IsHazard() != true {
+	if board.List[2].IsHazard() != true {
 		panic("Did not create hazard")
 	}
 
-	if board.list[5].IsFood() != true {
+	if board.List[5].IsFood() != true {
 		panic("Did not create food")
 	}
 
-	head := board.list[2]
-	tail := board.list[head.GetIdx()]
+	head := board.List[2]
+	tail := board.List[head.GetIdx()]
 	current := tail
 	for current != head {
-		current = board.list[current.GetIdx()]
+		current = board.List[current.GetIdx()]
 	}
 
 	if current != head {
@@ -510,7 +546,7 @@ func TestKill(t *testing.T) {
 	id := board.ids["me"]
 	board.kill(id)
 
-	if board.list[2].id == 1 {
+	if board.List[2].id == 1 {
 		panic("Snake was not removed!")
 	}
 
@@ -549,7 +585,7 @@ func TestAdvanceBoardMoving(t *testing.T) {
 	id := board.ids["me"]
 	board.Print()
 
-	if board.list[2].IsTripleStack() != true {
+	if board.List[2].IsTripleStack() != true {
 		panic("did not start with triple stack")
 	}
 
@@ -558,12 +594,12 @@ func TestAdvanceBoardMoving(t *testing.T) {
 	board.AdvanceBoard(moves)
 	board.Print()
 
-	if board.list[5].IsSnakeHead() != true {
+	if board.List[5].IsSnakeHead() != true {
 		fmt.Println(board)
-		fmt.Println(board.list[5].idx)
+		fmt.Println(board.List[5].idx)
 		panic("Did not move snake up!")
 	}
-	if board.list[2].IsDoubleStack() != true {
+	if board.List[2].IsDoubleStack() != true {
 		fmt.Println(board)
 		panic("did not set double stack!")
 	}
@@ -573,11 +609,11 @@ func TestAdvanceBoardMoving(t *testing.T) {
 	board.AdvanceBoard(moves)
 	board.Print()
 
-	if board.list[4].IsSnakeHead() != true {
+	if board.List[4].IsSnakeHead() != true {
 		fmt.Println(board)
 		panic("Did not move snake left!")
 	}
-	if board.list[2].IsDoubleStack() || board.list[2].IsTripleStack() {
+	if board.List[2].IsDoubleStack() || board.List[2].IsTripleStack() {
 		panic("should not be stacked!")
 	}
 
@@ -586,11 +622,11 @@ func TestAdvanceBoardMoving(t *testing.T) {
 	board.AdvanceBoard(moves)
 	board.Print()
 
-	if board.list[1].IsSnakeHead() != true {
+	if board.List[1].IsSnakeHead() != true {
 		panic("Did not move snake down!")
 	}
-	if board.list[2].IsSnakeSegment() != false {
-		fmt.Println(board.list[2])
+	if board.List[2].IsSnakeSegment() != false {
+		fmt.Println(board.List[2])
 		panic("Did not move tail!")
 	}
 
@@ -599,10 +635,10 @@ func TestAdvanceBoardMoving(t *testing.T) {
 	board.AdvanceBoard(moves)
 	board.Print()
 
-	if board.list[2].IsSnakeHead() != true {
+	if board.List[2].IsSnakeHead() != true {
 		panic("Did not move snake right!")
 	}
-	if board.list[5].IsSnakeSegment() != false {
+	if board.List[5].IsSnakeSegment() != false {
 		panic("Did not move tail!")
 	}
 }
@@ -869,7 +905,7 @@ func TestAdvanceBoardOutOfBounds(t *testing.T) {
 	moves[id] = Right
 	board.AdvanceBoard(moves)
 
-	if board.list[2].IsSnakeSegment() != false && board.list[1].IsSnakeSegment() != false && board.list[0].IsSnakeSegment() != false {
+	if board.List[2].IsSnakeSegment() != false && board.List[1].IsSnakeSegment() != false && board.List[0].IsSnakeSegment() != false {
 		panic("Did not remove snake from board!")
 	}
 
@@ -900,7 +936,7 @@ func TestAdvanceBoardOutOfBounds(t *testing.T) {
 	moves[id] = Left
 	board.AdvanceBoard(moves)
 
-	if board.list[2].IsSnakeSegment() != false && board.list[1].IsSnakeSegment() != false && board.list[0].IsSnakeSegment() != false {
+	if board.List[2].IsSnakeSegment() != false && board.List[1].IsSnakeSegment() != false && board.List[0].IsSnakeSegment() != false {
 		panic("Did not remove snake from board!")
 	}
 
@@ -931,7 +967,7 @@ func TestAdvanceBoardOutOfBounds(t *testing.T) {
 	moves[id] = Up
 	board.AdvanceBoard(moves)
 
-	if board.list[0].IsSnakeSegment() != false && board.list[3].IsSnakeSegment() != false && board.list[6].IsSnakeSegment() != false {
+	if board.List[0].IsSnakeSegment() != false && board.List[3].IsSnakeSegment() != false && board.List[6].IsSnakeSegment() != false {
 		panic("Did not remove snake from board!")
 	}
 
@@ -962,7 +998,7 @@ func TestAdvanceBoardOutOfBounds(t *testing.T) {
 	moves[id] = Down
 	board.AdvanceBoard(moves)
 
-	if board.list[2].IsSnakeSegment() != false && board.list[5].IsSnakeSegment() != false && board.list[8].IsSnakeSegment() != false {
+	if board.List[2].IsSnakeSegment() != false && board.List[5].IsSnakeSegment() != false && board.List[8].IsSnakeSegment() != false {
 		panic("Did not remove snake from board!")
 	}
 }
@@ -1117,7 +1153,7 @@ func TestAdvanceBoardFollowTail(t *testing.T) {
 		panic("Snake was killed!")
 	}
 
-	if board.list[5].IsSnakeHead() != true {
+	if board.List[5].IsSnakeHead() != true {
 		panic("Did not move snake!")
 	}
 
@@ -1159,7 +1195,7 @@ func TestAdvanceBoardFollowTail(t *testing.T) {
 		panic("Snake was killed!")
 	}
 
-	if board.list[5].IsSnakeHead() != true {
+	if board.List[5].IsSnakeHead() != true {
 		fmt.Println(board)
 		panic("Did not move snake!")
 	}
@@ -1203,7 +1239,7 @@ func TestAdvanceBoardFollowTail(t *testing.T) {
 		panic("Snake was not killed!")
 	}
 
-	if board.list[5].IsSnakeHead() != false {
+	if board.List[5].IsSnakeHead() != false {
 		fmt.Println(board)
 		panic("Did not remove snake!")
 	}
@@ -1275,7 +1311,7 @@ func TestAdvanceBoardWrapped(t *testing.T) {
 		panic("Should not have killed me!")
 	}
 
-	if board.list[3].IsSnakeHead() != true {
+	if board.List[3].IsSnakeHead() != true {
 		panic("Did not wrapped to right!")
 	}
 
@@ -1312,7 +1348,7 @@ func TestAdvanceBoardWrapped(t *testing.T) {
 		panic("Should not have killed me!")
 	}
 
-	if board.list[2].IsSnakeHead() != true {
+	if board.List[2].IsSnakeHead() != true {
 		panic("Did not wrapped to bottom!")
 	}
 
@@ -1349,7 +1385,7 @@ func TestAdvanceBoardWrapped(t *testing.T) {
 		panic("Should not have killed me!")
 	}
 
-	if board.list[7].IsSnakeHead() != true {
+	if board.List[7].IsSnakeHead() != true {
 		panic("Did not wrapped to top!")
 	}
 
@@ -1386,7 +1422,7 @@ func TestAdvanceBoardWrapped(t *testing.T) {
 		panic("Should not have killed me!")
 	}
 
-	if board.list[3].IsSnakeHead() != true {
+	if board.List[3].IsSnakeHead() != true {
 		panic("Did not wrapped to left!")
 	}
 }
@@ -1425,7 +1461,7 @@ func TestSnakeEating(t *testing.T) {
 
 	if len(moves) != 2 {
 		dirIndex := IndexInDirection(Up, board.Heads[id], 5, 5, true)
-		fmt.Println(board.list[dirIndex].IsDoubleStack())
+		fmt.Println(board.List[dirIndex].IsDoubleStack())
 		fmt.Println(moves)
 		panic("Should not go up!")
 	}
@@ -1501,8 +1537,8 @@ func TestAdvanceBoardCrazyStuff(t *testing.T) {
 		panic("Should not have killed id3!")
 	}
 
-	snakeId, ok := board.list[9].GetSnakeId()
-	if board.list[9].IsSnakeSegment() != true || !ok || snakeId != id0 {
+	snakeId, ok := board.List[9].GetSnakeId()
+	if board.List[9].IsSnakeSegment() != true || !ok || snakeId != id0 {
 		panic("lost snake id0 neck!")
 	}
 }
@@ -1515,9 +1551,9 @@ func TestBuildBoardSnakeAte(t *testing.T) {
 	b := BuildBoard(state)
 
 	// x: 9, y: 9 = 9 * 11 + 9 = 108
-	ind := pointToIndex(Point{X: 9, Y: 9}, b.width)
-	fmt.Println("is double", b.list[ind].IsDoubleStack())
-	if !b.list[108].IsDoubleStack() {
+	ind := pointToIndex(Point{X: 9, Y: 9}, b.Width)
+	fmt.Println("is double", b.List[ind].IsDoubleStack())
+	if !b.List[108].IsDoubleStack() {
 		panic("Did not add double stack after eating!")
 	}
 }
@@ -1556,10 +1592,10 @@ func TestRolloutArcadeMaze(t *testing.T) {
 	_ = json.Unmarshal(g, &state)
 
 	b := BuildBoard(state)
-	if b.list[pointToIndex(Point{X: 4, Y: 7}, b.width)].IsTripleStack() != true {
+	if b.List[pointToIndex(Point{X: 4, Y: 7}, b.Width)].IsTripleStack() != true {
 		panic("did not place triple stack")
 	}
-	if b.list[pointToIndex(Point{X: 14, Y: 7}, b.width)].IsTripleStack() != true {
+	if b.List[pointToIndex(Point{X: 14, Y: 7}, b.Width)].IsTripleStack() != true {
 		panic("did not place triple stack")
 	}
 

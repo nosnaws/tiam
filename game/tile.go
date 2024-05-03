@@ -6,14 +6,18 @@ type Tile struct {
 	flags uint8
 	id    SnakeId
 	idx   uint16
+
+	// for use in turn based evaluation
+	tailId  SnakeId
+	tailIdx uint16
 }
 
-const SNAKE_HEAD uint8 = 0x06
 const SNAKE_BODY_PART uint8 = 0x01
 const DOUBLE_STACK_PART uint8 = 0x02
 const TRIPLE_STACK_PART uint8 = 0x03
 const FOOD uint8 = 0x04
 const EMPTY uint8 = 0x05
+const SNAKE_HEAD uint8 = 0x06
 const KIND_MASK uint8 = 0x07
 const IS_HAZARD uint8 = 0x10
 
@@ -92,6 +96,10 @@ func (t *Tile) IsSnakeSegment() bool {
 	return t.IsSnakeHead() || t.IsSnakeBodyPart() || t.IsDoubleStack() || t.IsTripleStack()
 }
 
+func (t *Tile) IsNonHeadSegment() bool {
+	return t.IsSnakeBodyPart() || t.IsDoubleStack() || t.IsTripleStack()
+}
+
 func (t *Tile) IsSnakeBodyPart() bool {
 	return t.flags&KIND_MASK == SNAKE_BODY_PART
 }
@@ -110,6 +118,23 @@ func (t *Tile) IsSnakeBody() bool {
 
 func (t *Tile) IsStacked() bool {
 	return t.IsDoubleStack() || t.IsTripleStack()
+}
+
+func (t *Tile) IsHeadTail() bool {
+	//return t.flags&KIND_MASK == HEAD_TAIL || t.IsHeadTailDoubleStack()
+	return t.tailId != 0
+}
+
+func (t *Tile) SetHeadTail(headSnakeId SnakeId, headSnakeTail uint16, tailSnakeId SnakeId, tailSnakeNext uint16) {
+	t.SetHead(headSnakeId, headSnakeTail)
+	t.tailId = tailSnakeId
+	t.tailIdx = tailSnakeNext
+}
+
+func (t *Tile) SetBodyTail(bodyId SnakeId, bodyTail uint16, tailId SnakeId, bodyNext uint16) {
+	t.SetBodyPart(bodyId, bodyTail)
+	t.tailId = tailId
+	t.tailIdx = bodyNext
 }
 
 func (t *Tile) SetHead(id SnakeId, tailIdx uint16) {
@@ -139,6 +164,8 @@ func (t *Tile) Clear() {
 	t.flags = (t.flags & ^KIND_MASK) | EMPTY
 	t.id = 0
 	t.idx = 0
+	t.tailId = 0
+	t.tailIdx = 0
 }
 
 func (t *Tile) GetSnakeId() (SnakeId, bool) {
